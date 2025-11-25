@@ -263,11 +263,17 @@ class WebSocketEyeTrackingSession:
                 'timestamp': datetime.now().isoformat()
             }
             
-            #  Save to database via PHP endpoint
+            # Save to database via PHP endpoint
+            # Use environment variable for Railway, fallback to production URL
+            php_endpoint = os.getenv(
+                'PHP_ENDPOINT',
+                'https://eyelearn-capstone.up.railway.app/user/database/save_enhanced_tracking.php'
+            )
+            
             response = requests.post(
-                'http://localhost/capstone/user/database/save_enhanced_tracking.php',
+                php_endpoint,
                 json=data,
-                timeout=5
+                timeout=10
             )
             
             if response.status_code == 200:
