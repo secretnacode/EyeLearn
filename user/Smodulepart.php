@@ -1018,7 +1018,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script>
         const currentCompletionPercentage = <?php echo json_encode($completion_percentage); ?>; //Tofu: pass completion percentage
     </script>
-        <script src="js/cv-eye-tracking.js?canvas_debug_<?php echo time(); ?>"></script>
     
     <!-- Socket.IO Client Library for WebSocket Eye Tracking -->
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
