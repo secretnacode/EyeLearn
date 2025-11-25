@@ -1982,6 +1982,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <!-- Main Content Area -->
         <main id="main-content" class="main-content flex-1 p-3 transition-all duration-300 mt-16">
         
+        <!-- Live Eye Tracking Widget -->
+        <div id="eye-tracking-widget" class="fixed bottom-4 right-4 bg-white border-2 border-blue-500 rounded-lg shadow-lg p-4 w-72 z-50" style="display: none;">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                    </svg>
+                    <h3 class="text-sm font-bold text-gray-800">Eye Tracking</h3>
+                </div>
+                <div id="tracking-status-indicator" class="flex items-center gap-1">
+                    <span class="relative flex h-3 w3">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                    </span>
+                    <span class="text-xs text-green-600 font-medium">Active</span>
+                </div>
+            </div>
+            
+            <div class="space-y-2">
+                <!-- Focus Status -->
+                <div class="flex items-center justify-between p-2 bg-green-50 rounded">
+                    <span class="text-xs font-medium text-gray-700">✅ Focused</span>
+                    <span id="focused-time" class="text-sm font-bold text-green-600">0s</span>
+                </div>
+                
+                <!-- Unfocus Status -->
+                <div class="flex items-center justify-between p-2 bg-red-50 rounded">
+                    <span class="text-xs font-medium text-gray-700">❌ Unfocused</span>
+                    <span id="unfocused-time" class="text-sm font-bold text-red-600">0s</span>
+                </div>
+                
+                <!-- Session Time -->
+                <div class="flex items-center justify-between p-2 bg-blue-50 rounded">
+                    <span class="text-xs font-medium text-gray-700">⏱️ Session</span>
+                    <span id="session-time" class="text-sm font-bold text-blue-600">0s</span>
+                </div>
+                
+                <!-- Focus Percentage -->
+                <div class="mt-3">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-medium text-gray-700">Focus Percentage</span>
+                        <span id="focus-percentage" class="text-sm font-bold text-indigo-600">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div id="focus-progress-bar" class="bg-indigo-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <!-- Current Status -->
+                <div id="current-focus-status" class="mt-3 p-2 bg-gray-100 rounded text-center">
+                    <span class="text-xs font-medium text-gray-600">Initializing...</span>
+                </div>
+            </div>
+        </div>
+        
         <?php if ($selected_quiz_id): ?>
             <?php
                 $finalQuizTitle = $final_quiz ? htmlspecialchars($final_quiz['title']) : 'Final Quiz';
@@ -3366,23 +3422,139 @@ document.addEventListener('DOMContentLoaded', function() {
         
         console.log('🚀 Initializing WebSocket Eye Tracking for module:', {userId, moduleId, sectionId});
         
+        // Get widget elements
+        const widget = document.getElementById('eye-tracking-widget');
+        const focusedTimeEl = document.getElementById('focused-time');
+        const unfocusedTimeEl = document.getElementById('unfocused-time');
+        const sessionTimeEl = document.getElementById('session-time');
+        const focusPercentageEl = document.getElementById('focus-percentage');
+        const focusProgressBar = document.getElementById('focus-progress-bar');
+        const currentStatusEl = document.getElementById('current-focus-status');
+        
+        // Helper function to format time
+        function formatTime(seconds) {
+            if (seconds < 60) return Math.round(seconds) + 's';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.round(seconds % 60);
+            return `${mins}m ${secs}s`;
+        }
+        
+        // Make widget draggable
+        let isDragging = false;
+        let currentX, currentY, initialX, initialY;
+        
+        widget.addEventListener('mousedown', function(e) {
+            if (e.target.closest('h3')) { // Only drag from header
+                isDragging = true;
+                initialX = e.clientX - widget.offsetLeft;
+                initialY = e.clientY - widget.offsetTop;
+                widget.style.cursor = 'grabbing';
+            }
+        });
+        
+        document.addEventListener('mousemove', function(e) {
+            if (isDragging) {
+                e.preventDefault();
+                currentX = e.clientX - initialX;
+                currentY = e.clientY - initialY;
+                
+                // Keep within viewport
+                const maxX = window.innerWidth - widget.offsetWidth;
+                const maxY = window.innerHeight - widget.offsetHeight;
+                currentX = Math.max(0, Math.min(currentX, maxX));
+                currentY = Math.max(0, Math.min(currentY, maxY));
+                
+                widget.style.left = currentX + 'px';
+                widget.style.top = currentY + 'px';
+                widget.style.right = 'auto';
+                widget.style.bottom = 'auto';
+            }
+        });
+        
+        document.addEventListener('mouseup', function() {
+            if (isDragging) {
+                isDragging = false;
+                widget.style.cursor = 'move';
+            }
+        });
+        
+        // Add cursor style on header
+        widget.querySelector('h3').style.cursor = 'move';
+        
         // Create WebSocket connection
         webcamSocket = new WebcamWebSocket({
             onTrackingUpdate: function(data) {
-                // Update UI with tracking data
+                // Show widget on first update
+                if (widget.style.display === 'none') {
+                    widget.style.display = 'block';
+                }
+                
+                // Update focus status
                 if (data.is_focused !== undefined) {
+                    const status = data.is_focused ? '✅ Currently Focused' : '⚠️ Currently Unfocused';
+                    const bgColor = data.is_focused ? 'bg-green-100' : 'bg-red-100';
+                    const textColor = data.is_focused ? 'text-green-700' : 'text-red-700';
+                    
+                    currentStatusEl.className = `mt-3 p-2 ${bgColor} rounded text-center`;
+                    currentStatusEl.innerHTML = `<span class="text-xs font-medium ${textColor}">${status}</span>`;
+                    
                     console.log('👁️ Focus status:', data.is_focused ? 'Focused' : 'Unfocused');
                 }
                 
+                // Update metrics
                 if (data.metrics) {
-                    console.log('📊 Metrics:', data.metrics);
+                    const metrics = data.metrics;
+                    
+                    // Update times
+                    if (metrics.focused_time !== undefined) {
+                        focusedTimeEl.textContent = formatTime(metrics.focused_time);
+                    }
+                    
+                    if (metrics.unfocused_time !== undefined) {
+                        unfocusedTimeEl.textContent = formatTime(metrics.unfocused_time);
+                    }
+                    
+                    if (metrics.total_time !== undefined) {
+                        sessionTimeEl.textContent = formatTime(metrics.total_time);
+                    }
+                    
+                    // Update focus percentage
+                    if (metrics.focus_percentage !== undefined) {
+                        const percentage = Math.round(metrics.focus_percentage);
+                        focusPercentageEl.textContent = percentage + '%';
+                        focusProgressBar.style.width = percentage + '%';
+                        
+                        // Change color based on percentage
+                        if (percentage >= 70) {
+                            focusProgressBar.className = 'bg-green-600 h-2 rounded-full transition-all duration-300';
+                        } else if (percentage >= 40) {
+                            focusProgressBar.className = 'bg-yellow-600 h-2 rounded-full transition-all duration-300';
+                        } else {
+                            focusProgressBar.className = 'bg-red-600 h-2 rounded-full transition-all duration-300';
+                        }
+                    }
+                    
+                    console.log('📊 Metrics:', metrics);
                 }
             },
             onConnectionChange: function(connected) {
+                const statusIndicator = document.getElementById('tracking-status-indicator');
                 if (connected) {
                     console.log('✅ Connected to WebSocket eye tracking server');
+                    statusIndicator.innerHTML = `
+                        <span class="relative flex h-3 w-3">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                        </span>
+                        <span class="text-xs text-green-600 font-medium">Active</span>
+                    `;
+                    widget.style.display = 'block';
                 } else {
                     console.log('❌ Disconnected from WebSocket eye tracking server');
+                    statusIndicator.innerHTML = `
+                        <span class="relative flex h-3 w-3 bg-red-500 rounded-full"></span>
+                        <span class="text-xs text-red-600 font-medium">Disconnected</span>
+                    `;
                 }
             },
             onError: function(error) {
