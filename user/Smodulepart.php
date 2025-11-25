@@ -1019,6 +1019,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         const currentCompletionPercentage = <?php echo json_encode($completion_percentage); ?>; //Tofu: pass completion percentage
     </script>
         <script src="js/cv-eye-tracking.js?canvas_debug_<?php echo time(); ?>"></script>
+    
+    <!-- Socket.IO Client Library for WebSocket Eye Tracking -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    
+    <!-- WebSocket Webcam Capture for Eye Tracking -->
+    <script src="js/webcam-websocket.js"></script>
+    
     <script>
         // Checkpoint Quiz Handler - Define early so it's available for inline onclick
         <?php if (($selected_checkpoint_quiz_id && isset($checkpoint_quiz)) || ($selected_section && isset($selected_section['is_checkpoint_quiz']) && $selected_section['is_checkpoint_quiz'] && isset($checkpoint_quiz))): ?>
@@ -3459,6 +3466,75 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Start tracking when the module content is loaded
     startModuleTracking();
+    
+    // ========================================
+    // WebSocket Eye Tracking Integration
+    // ========================================
+    let webcamSocket = null;
+    
+    // Initialize WebSocket eye tracking
+    function initWebSocketEyeTracking() {
+        const userId = <?php echo json_encode($user_id); ?>;
+        const moduleId = <?php echo json_encode($selected_module_id); ?>;
+        const sectionId = <?php echo json_encode($selected_section_id ?? null); ?>;
+        
+        console.log('🚀 Initializing WebSocket Eye Tracking for module:', {userId, moduleId, sectionId});
+        
+        // Create WebSocket connection
+        webcamSocket = new WebcamWebSocket({
+            onTrackingUpdate: function(data) {
+                // Update UI with tracking data
+                if (data.is_focused !== undefined) {
+                    console.log('👁️ Focus status:', data.is_focused ? 'Focused' : 'Unfocused');
+                }
+                
+                if (data.metrics) {
+                    console.log('📊 Metrics:', data.metrics);
+                }
+            },
+            onConnectionChange: function(connected) {
+                if (connected) {
+                    console.log('✅ Connected to WebSocket eye tracking server');
+                } else {
+                    console.log('❌ Disconnected from WebSocket eye tracking server');
+                }
+            },
+            onError: function(error) {
+                console.error('❌ WebSocket eye tracking error:', error);
+                
+                if (error.type === 'CAMERA_PERMISSION_DENIED') {
+                    console.warn('⚠️ Camera permission denied');
+                } else if (error.type === 'NO_CAMERA') {
+                    console.warn('⚠️ No camera found');
+                } else {
+                    console.error('❌ Error:', error.message);
+                }
+            }
+        });
+        
+        // Initialize WebSocket connection
+        webcamSocket.initialize(userId, moduleId, sectionId)
+            .then(success => {
+                if (success) {
+                    console.log('✅ WebSocket eye tracking fully initialized');
+                } else {
+                    console.error('❌ Failed to initialize WebSocket eye tracking');
+                }
+            })
+            .catch(error => {
+                console.error('❌ WebSocket initialization error:', error);
+            });
+    }
+    
+    // Start WebSocket eye tracking
+    initWebSocketEyeTracking();
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+        if (webcamSocket) {
+            webcamSocket.disconnect();
+        }
+    });
 });
     </script>
 </body>
