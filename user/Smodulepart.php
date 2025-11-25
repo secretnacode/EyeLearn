@@ -1154,7 +1154,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             fetch(window.location.href, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(submitData)
             })
