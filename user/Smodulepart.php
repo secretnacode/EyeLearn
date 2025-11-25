@@ -1820,11 +1820,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     });
 
                 // Open current section if PHP variables are set
-                <?php if (!empty($selected_section['part_id'])): ?>
+                <?php if (!empty($selected_section) && isset($selected_section['part_id'])): ?>
                 const currentPartId = <?php echo json_encode($selected_section['part_id']); ?>;
                 const currentPartHeader = document.querySelector(`.part-header[data-part-id="${currentPartId}"]`);
                 if (currentPartHeader) togglePartSection(currentPartHeader, true);
                 <?php endif; ?>
+
 
                 // --- Final Quiz Link ---
                 const finalQuizLink = document.querySelector('a[href*="final_quiz"]');
