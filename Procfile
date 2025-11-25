@@ -1,1 +1,1 @@
-web: python eye_tracking_service_websocket.py
+web: python python_services/eye_tracking_service_websocket.py
