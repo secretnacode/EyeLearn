@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Video Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        #video { width: 100%; max-width: 640px; border: 2px solid #007acc; }
+        button { padding: 10px 20px; margin: 10px; background: #007acc; color: white; border: none; border-radius: 5px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Simple Video Feed Test</h1>
+        
+        <div id="status" class="status">Click "Show Video" to test</div>
+        
+        <button onclick="showVideo()">Show Video</button>
+        <button onclick="testSingleFrame()">Test Single Frame</button>
+        
+        <div style="margin-top: 20px;">
+            <img id="video" src="" alt="Video will appear here" />
+        </div>
+    </div>
+
+    <script>
+        let interval = null;
+        
+        function updateStatus(message, isError = false) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + (isError ? 'error' : 'success');
+        }
+        
+        async function testSingleFrame() {
+            try {
+                updateStatus('Requesting single frame...');
+                const response = await fetch('http://127.0.0.1:5000/api/frame');
+                const data = await response.json();
+                
+                if (data.success && data.frame) {
+                    document.getElementById('video').src = `data:image/jpeg;base64,${data.frame}`;
+                    updateStatus(`Frame loaded! Size: ${data.frame.length} characters`);
+                } else {
+                    updateStatus('No frame data received', true);
+                }
+            } catch (error) {
+                updateStatus('Error: ' + error.message, true);
+            }
+        }
+        
+        function showVideo() {
+            if (interval) {
+                clearInterval(interval);
+                interval = null;
+                updateStatus('Video stopped');
+                return;
+            }
+            
+            updateStatus('Starting video...');
+            interval = setInterval(async () => {
+                try {
+                    const response = await fetch('http://127.0.0.1:5000/api/frame');
+                    const data = await response.json();
+                    
+                    if (data.success && data.frame) {
+                        document.getElementById('video').src = `data:image/jpeg;base64,${data.frame}`;
+                        updateStatus('Video running');
+                    }
+                } catch (error) {
+                    updateStatus('Video error: ' + error.message, true);
+                }
+            }, 200);
+        }
+    </script>
+</body>
+</html>

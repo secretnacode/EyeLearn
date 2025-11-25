@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eye Tracking Live Feed</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .live-feed-container {
+            max-width: 800px;
+            border: 2px solid #4F46E5;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .feed-header {
+            background: linear-gradient(135deg, #4F46E5, #7C3AED);
+            color: white;
+            padding: 1rem;
+            text-align: center;
+        }
+        
+        .feed-content {
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 400px;
+        }
+        
+        .feed-image {
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-live {
+            background-color: #10B981;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-offline {
+            background-color: #EF4444;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .controls {
+            padding: 1rem;
+            background: #F9FAFB;
+            border-top: 1px solid #E5E7EB;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen py-8">
+    <div class="container mx-auto px-4">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">👁️ Eye Tracking Live Feed</h1>
+            <p class="text-gray-600">Real-time gaze tracking with computer vision overlays</p>
+        </div>
+        
+        <!-- Live Feed Container -->
+        <div class="live-feed-container mx-auto shadow-xl">
+            <!-- Feed Header -->
+            <div class="feed-header">
+                <h2 class="text-xl font-bold mb-2">
+                    <span id="status-indicator" class="status-indicator status-offline"></span>
+                    <span id="status-text">Connecting...</span>
+                </h2>
+                <p class="text-sm opacity-90">Computer Vision Eye Tracking Service</p>
+            </div>
+            
+            <!-- Feed Content -->
+            <div class="feed-content">
+                <img id="live-feed" 
+                     class="feed-image" 
+                     src="" 
+                     alt="Live Feed" 
+                     style="display: none;"
+                     onload="handleFeedLoad()"
+                     onerror="handleFeedError()">
+                
+                <div id="loading-message" class="text-white text-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+                    <p>Waiting for video feed...</p>
+                    <p class="text-sm mt-2 opacity-75">Make sure the eye tracking service is running</p>
+                </div>
+                
+                <div id="error-message" class="text-red-400 text-center" style="display: none;">
+                    <div class="text-6xl mb-4">⚠️</div>
+                    <p class="text-lg mb-2">Feed Unavailable</p>
+                    <p class="text-sm opacity-75">Check if the Python service is running</p>
+                </div>
+            </div>
+            
+            <!-- Controls -->
+            <div class="controls">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center space-x-4">
+                        <button id="refresh-btn" 
+                                onclick="refreshFeed()" 
+                                class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            🔄 Refresh Feed
+                        </button>
+                        
+                        <button id="fullscreen-btn" 
+                                onclick="toggleFullscreen()" 
+                                class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            🔍 Fullscreen
+                        </button>
+                    </div>
+                    
+                    <div class="text-sm text-gray-600">
+                        <span id="feed-info">Feed URL: http://127.0.0.1:5000/api/live_feed</span>
+                    </div>
+                </div>
+                
+                <div class="mt-4 text-xs text-gray-500">
+                    <p><strong>Legend:</strong> 
+                        <span class="text-green-600">Green boxes = Eyes detected</span> | 
+                        <span class="text-red-600">Red dots = Pupils</span> | 
+                        <span class="text-yellow-600">Yellow text = Gaze direction</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Instructions -->
+        <div class="mt-8 max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6">
+            <h3 class="text-lg font-semibold mb-4 text-gray-800">📋 How to Use</h3>
+            <ol class="list-decimal list-inside space-y-2 text-gray-600">
+                <li>Ensure the Python eye tracking service is running on port 5000</li>
+                <li>Allow webcam access when prompted by the browser</li>
+                <li>Position yourself in front of the camera with good lighting</li>
+                <li>Watch the live feed with real-time gaze tracking overlays</li>
+                <li>Green indicates focused state, red indicates unfocused</li>
+            </ol>
+            
+            <div class="mt-4 p-4 bg-blue-50 rounded-lg">
+                <p class="text-sm text-blue-800">
+                    <strong>💡 Tip:</strong> This live feed is perfect for debugging eye tracking issues, 
+                    demonstrating the system, and monitoring tracking accuracy in real-time.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const FEED_URL = 'http://127.0.0.1:5000/api/live_feed';
+        let feedRetryCount = 0;
+        const maxRetries = 3;
+        
+        function initializeFeed() {
+            const feedImg = document.getElementById('live-feed');
+            const statusIndicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+            
+            // Set the feed URL
+            feedImg.src = FEED_URL + '?t=' + Date.now(); // Add timestamp to prevent caching
+            
+            // Update status
+            statusText.textContent = 'Connecting...';
+            statusIndicator.className = 'status-indicator status-offline';
+        }
+        
+        function handleFeedLoad() {
+            const feedImg = document.getElementById('live-feed');
+            const loadingMsg = document.getElementById('loading-message');
+            const errorMsg = document.getElementById('error-message');
+            const statusIndicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+            
+            // Show the feed and hide messages
+            feedImg.style.display = 'block';
+            loadingMsg.style.display = 'none';
+            errorMsg.style.display = 'none';
+            
+            // Update status
+            statusText.textContent = 'Live Feed Active';
+            statusIndicator.className = 'status-indicator status-live';
+            
+            feedRetryCount = 0; // Reset retry count on success
+        }
+        
+        function handleFeedError() {
+            const feedImg = document.getElementById('live-feed');
+            const loadingMsg = document.getElementById('loading-message');
+            const errorMsg = document.getElementById('error-message');
+            const statusIndicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+            
+            feedRetryCount++;
+            
+            if (feedRetryCount <= maxRetries) {
+                // Retry after delay
+                setTimeout(() => {
+                    statusText.textContent = `Retrying... (${feedRetryCount}/${maxRetries})`;
+                    initializeFeed();
+                }, 2000);
+            } else {
+                // Show error after max retries
+                feedImg.style.display = 'none';
+                loadingMsg.style.display = 'none';
+                errorMsg.style.display = 'block';
+                
+                statusText.textContent = 'Service Offline';
+                statusIndicator.className = 'status-indicator status-offline';
+            }
+        }
+        
+        function refreshFeed() {
+            feedRetryCount = 0;
+            const loadingMsg = document.getElementById('loading-message');
+            const errorMsg = document.getElementById('error-message');
+            const feedImg = document.getElementById('live-feed');
+            
+            // Reset display
+            feedImg.style.display = 'none';
+            loadingMsg.style.display = 'block';
+            errorMsg.style.display = 'none';
+            
+            initializeFeed();
+        }
+        
+        function toggleFullscreen() {
+            const feedImg = document.getElementById('live-feed');
+            
+            if (!document.fullscreenElement) {
+                feedImg.requestFullscreen().catch(err => {
+                    console.log('Fullscreen error:', err);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+        
+        // Check service health
+        async function checkServiceHealth() {
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/health');
+                const data = await response.json();
+                
+                if (data.success) {
+                    console.log('✅ Eye tracking service is running');
+                    return true;
+                }
+            } catch (error) {
+                console.log('❌ Eye tracking service not accessible:', error);
+            }
+            return false;
+        }
+        
+        // Initialize when page loads
+        window.addEventListener('load', async () => {
+            console.log('🎯 Initializing live feed...');
+            
+            // Check if service is available
+            const serviceRunning = await checkServiceHealth();
+            if (serviceRunning) {
+                initializeFeed();
+            } else {
+                handleFeedError();
+            }
+        });
+    </script>
+</body>
+</html>

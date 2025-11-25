@@ -1,0 +1,1514 @@
+<?php
+session_start();
+if (!isset($_SESSION['user_id']) || $_SESSION['user_id'] != 1 || $_SESSION['role'] !== 'admin') {
+    header("Location: ../loginpage.php");
+    exit;
+}
+if (isset($_GET['delete']) && $_GET['delete'] === 'success') {
+    echo '<div class="bg-green-100 text-green-800 px-4 py-2 rounded mb-4">Module deleted successfully.</div>';
+}
+?> 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EyeLearn - AI-Enhanced E-Learning System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/src/output.css">
+    <script src="https://cdn.tiny.cloud/1/o0j2mtcyxt3em3izkzzn7aoowxxmhagvzxauvlur850p2647/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary': '#3B82F6',
+                        'secondary': '#10B981',
+                        'background': '#F9FAFB',
+                        'ibm-blue': '#0f62fe'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Sidebar styling */
+        .sidebar {
+            width: 240px;
+            background-color: white;
+            transition: width 0.3s ease;
+        }
+        
+        .sidebar-collapsed {
+            width: 64px;
+        }
+        
+        /* Active indicator */
+        .nav-indicator {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background-color: #3B82F6;
+            opacity: 0;
+        }
+        
+        .nav-item.active .nav-indicator {
+            opacity: 1;
+        }
+        
+        .nav-item.active {
+            background-color: #F0F7FF;
+        }
+        
+        /* Content area */
+        .main-content {
+            margin-left: 240px;
+            transition: margin-left 0.3s ease;
+        }
+        
+        .main-content-collapsed {
+            margin-left: 64px;
+        }
+        
+        /* Profile dropdown */
+        .profile-dropdown {
+            display: none;
+            position: absolute;
+            right: 1rem;
+            top: 4.5rem;
+            width: 240px;
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            z-index: 50;
+        }
+        
+        .profile-dropdown.show {
+            display: block;
+        }
+        
+        /* Responsive behavior */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                position: fixed;
+                z-index: 50;
+                height: 100%;
+            }
+            
+            .sidebar.mobile-visible {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .backdrop {
+                background-color: rgba(0, 0, 0, 0.5);
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 40;
+                display: none;
+            }
+            
+            .backdrop.active {
+                display: block;
+            }
+        }
+        
+    </style>
+</head>
+<body class="bg-background">
+    <!-- Top Navigation Bar -->
+    <nav class="fixed top-0 left-0 right-0 h-16 bg-white shadow-md z-30 flex items-center justify-between px-4">
+        <!-- Left side - Menu toggle and title -->
+        <div class="flex items-center">
+            <button id="toggle-sidebar" class="text-gray-500 hover:text-gray-700 p-2 mr-2">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                </svg>
+            </button>
+            <h1 class="text-xl font-bold text-primary">EyeLearn</h1>
+        </div>
+         
+            <!-- Profile dropdown -->
+            <div class="profile-container relative">
+                <button id="profile-toggle" class="flex items-center space-x-2 focus:outline-none">
+                    <div class="bg-primary rounded-full w-8 h-8 flex items-center justify-center text-white font-medium text-sm">
+                        A
+                    </div>
+                    <span class="hidden md:inline-block font-medium text-gray-700">Admin</span>
+                </button>
+                
+                <!-- Dropdown menu -->
+                <div id="profile-dropdown" class="profile-dropdown">
+                    <div class="p-4 border-b">
+                        <p class="font-medium text-gray-800">Admin</p>
+                        <p class="text-sm text-gray-500">admin@admin.eyelearn</p>
+                    </div>
+                    <div class="p-2">
+                        <a href="../logout.php" class="block px-4 py-2 text-red-600 hover:bg-red-50 rounded">Logout</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="flex min-h-screen pt-16">
+        <!-- Mobile backdrop -->
+        <div id="backdrop" class="backdrop"></div>
+        
+        <!-- Sidebar -->
+        <div id="sidebar" class="sidebar fixed left-0 top-16 h-full shadow-lg z-40 flex flex-col transition-all duration-300 ease-in-out">
+            <!-- Navigation -->
+            <nav class="mt-6 flex-1">
+                <ul>
+                    <!-- Dashboard -->
+                    <li class="nav-item relative" id="dashboard-item">
+                        <div class="nav-indicator"></div>
+                        <a href="Adashboard.php" class="h-14 flex items-center px-5 text-gray-700 hover:bg-gray-50 transition duration-150" id="dashboard-link">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                            </svg>
+                            <span class="font-medium ml-4 nav-text">Dashboard</span>
+                        </a>
+                    </li>
+                    
+                    <!-- Modules -->
+                    <li class="nav-item relative" id="modules-item">
+                        <div class="nav-indicator"></div>
+                        <a href="Amodule.php" class="h-14 flex items-center px-5 text-gray-700 hover:bg-gray-50 transition duration-150" id="modules-link">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                            </svg>
+                            <span class="font-medium ml-4 nav-text">Modules</span>
+                        </a>
+                    </li>
+                    
+                    <!-- Student Management -->
+                    <li class="nav-item relative" id="assessments-item">
+                        <div class="nav-indicator"></div>
+                        <a href="Amanagement.php" class="h-14 flex items-center px-5 text-gray-700 hover:bg-gray-50 transition duration-150" id="assessments-link">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                            </svg>
+                            <span class="font-medium ml-4 nav-text">Student Management</span>
+                        </a>
+                    </li>
+    
+                </ul>
+            </nav>
+        </div>
+        
+        <!-- Mobile Header -->
+        <div class="md:hidden fixed top-0 left-0 right-0 bg-white shadow-md z-30 flex items-center justify-between p-4">
+            <button id="mobile-menu-toggle" class="text-gray-700">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                </svg>
+            </button>
+            <h1 class="text-xl font-bold text-primary">EyeLearn</h1>
+            <div class="w-6 flex items-center justify-center">
+                <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                </svg>
+            </div>
+        </div>
+
+        <main id="main-content" class="main-content flex-1 p-6 md:p-8 transition-all duration-300">
+  <nav class="bg-blue-600 text-white shadow-md">
+        <div class="container mx-auto px-6 py-3 flex justify-between items-center">
+            <h1 class="text-xl font-bold">Module Management </h1>
+            <div class="flex space-x-4">
+                <button id="modules-tab" class="py-2 px-4 bg-blue-700 rounded-md font-medium" onclick="switchTab('modules')">Modules</button>
+                <button id="module-parts-tab" class="py-2 px-4 hover:bg-blue-700 rounded-md font-medium" onclick="switchTab('module-parts')">Module Parts</button>
+                <button id="final-quiz-tab" class="py-2 px-4 hover:bg-blue-700 rounded-md font-medium" onclick="switchTab('final-quiz')">Final Quiz</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-6 py-8">
+                <!-- Modules Tab -->
+                <div id="modules-section" class="tab-content">
+                    <h2 class="text-xl font-bold mb-6 text-gray-800">Add New Module</h2>
+                    <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+                        <form id="add-module-form" class="space-y-4" method="POST" action="database/upload_module.php" enctype="multipart/form-data">
+                            <input type="hidden" name="add_module" value="1">
+                            <div>
+                                <label for="module-title" class="block mb-2 font-medium text-gray-700">Module Title</label>
+                                <input type="text" id="module-title" name="module_title" class="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
+                            <div>
+                                <label for="module-description" class="block mb-2 font-medium text-gray-700">Module Description</label>
+                                <textarea id="module-description" name="module_description" rows="3" class="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required></textarea>
+                            </div>
+                            <div>
+                                <label for="module-image" class="block mb-2 font-medium text-gray-700">Upload Module Picture (showcase only)</label>
+                                <div class="flex items-center">
+                                    <input type="file" id="module-image" name="module_image" class="hidden" accept="image/*">
+                                    <label for="module-image" class="cursor-pointer bg-blue-50 text-blue-600 px-4 py-2 border border-blue-300 rounded-md hover:bg-blue-100">
+                                        Choose File
+                                    </label>
+                                    <span id="file-name" class="ml-3 text-gray-500">No file chosen</span>
+                                </div>
+                                <div id="image-preview" class="mt-3 hidden">
+                                    <!-- Image preview will appear here -->
+                                </div>
+                            </div>
+                            <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                Add Module
+                            </button>
+                        </form>
+                    </div>
+           
+    
+    <!-- Existing Modules Grid -->
+    <h2 class="text-xl font-bold mb-6 text-gray-800">Existing Modules</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <?php
+        $conn = new mysqli(getenv('MYSQLHOST') ?: 'tramway.proxy.rlwy.net', getenv('MYSQLUSER') ?: 'root', getenv('MYSQLPASSWORD') ?: 'niCcpkrZKKhLDhXeTbcbhIYSFJBfNibP', getenv('MYSQLDATABASE') ?: 'railway', intval(getenv('MYSQLPORT') ?: 10241));
+        if ($conn->connect_error) {
+            die("Connection failed: " . $conn->connect_error);
+        }
+
+        $result = $conn->query("SELECT * FROM modules ORDER BY created_at DESC");
+
+        while ($row = $result->fetch_assoc()) {
+            echo '<div class="bg-white rounded-lg shadow-md overflow-hidden">';
+            if (!empty($row['image_path'])) {
+                echo '<img src="' . htmlspecialchars($row['image_path']) . '" alt="Module Image" class="w-full h-48 object-cover">';
+            }
+            echo '<div class="p-6">';
+            echo '<h3 class="text-lg font-bold mb-2 text-gray-800">' . htmlspecialchars($row['title']) . '</h3>';
+            echo '<p class="text-gray-600 mb-4">' . htmlspecialchars($row['description']) . '</p>';
+            echo '<div class="flex justify-end space-x-2">';
+
+            // Check the status of the module
+            if ($row['status'] === 'published') {
+                echo '<form method="POST" action="database/revoke_module.php" class="inline">
+                        <input type="hidden" name="module_id" value="' . $row['id'] . '">
+                        <button type="submit" class="px-3 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200">Revoke</button>
+                      </form>';
+            } else {
+                echo '<form method="POST" action="database/publish_module.php" class="inline">
+                        <input type="hidden" name="module_id" value="' . $row['id'] . '">
+                        <button type="submit" class="px-3 py-1 bg-green-100 text-green-600 rounded hover:bg-green-200">Upload</button>
+                      </form>';
+            }
+            echo '<button 
+                    class="px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 open-edit-modal  " 
+                    data-id="' . $row['id'] . '" 
+                    data-title="' . htmlspecialchars($row['title']) . '" 
+                    data-description="' . htmlspecialchars($row['description']) . '" 
+                    data-image="' . htmlspecialchars($row['image_path']) . '">
+                    Edit
+                  </button>';
+            echo '<form method="POST" action="database/delete_module.php" class="inline" onsubmit="return confirm(\'Are you sure you want to delete this module? This will also delete all related module parts and quizzes.\');">
+                    <input type="hidden" name="module_id" value="' . $row['id'] . '">
+                    <button type="submit" class="px-3 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200">Delete</button>
+                  </form>';
+            echo '</div>';
+            echo '</div>';
+            echo '</div>';
+        }
+        ?>
+    </div>
+</div>
+
+        <!-- Edit Module Modal -->
+<div id="edit-module-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div class="border-b px-6 py-4 flex justify-between items-center">
+            <h3 class="text-lg font-bold text-gray-800">Edit Module</h3>
+            <button id="close-edit-modal" class="text-gray-500 hover:text-gray-700">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+            </button>
+        </div>
+                <form id="edit-module-form" class="p-6 space-y-4" method="POST" action="database/edit_module.php" enctype="multipart/form-data">
+            <input type="hidden" id="edit-module-id" name="module_id" value="">
+            <input type="hidden" id="existing-image-path" name="existing_image" value="">
+            <div>
+                <label for="edit-module-title" class="block mb-2 font-medium text-gray-700">Module Title</label>
+                <input type="text" id="edit-module-title" name="module_title" class="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+            </div>
+            <div>
+                <label for="edit-module-description" class="block mb-2 font-medium text-gray-700">Module Description</label>
+                <textarea id="edit-module-description" name="module_description" rows="3" class="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required></textarea>
+            </div>
+            <div>
+                <label class="block mb-2 font-medium text-gray-700">Current Image</label>
+                <div id="current-image-container" class="mb-2 h-32 bg-gray-100 flex items-center justify-center rounded border">
+                    <img id="current-module-image" src="" alt="Current module image" class="max-h-full max-w-full object-contain hidden">
+                    <span id="no-image-text" class="text-gray-500">No image uploaded</span>
+                </div>
+            </div>
+                    <div>
+                        <label for="edit-module-image" class="block mb-2 font-medium text-gray-700">Upload New Image (Optional)</label>
+                        <div class="flex items-center">
+                            <input type="file" id="edit-module-image" name="module_image" class="hidden" accept="image/*">
+                            <label for="edit-module-image" class="cursor-pointer bg-blue-50 text-blue-600 px-4 py-2 border border-blue-300 rounded-md hover:bg-blue-100">
+                                Choose File
+                            </label>
+                            <span id="edit-file-name" class="ml-3 text-gray-500">No file chosen</span>
+                        </div>
+                    </div>
+            <div class="flex justify-end space-x-3 pt-4">
+                <button type="button" id="cancel-edit" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-300">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- JavaScript for the edit modal functionality -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Get modal elements
+    const editModal = document.getElementById('edit-module-modal');
+    const editModuleId = document.getElementById('edit-module-id');
+    const editModuleTitle = document.getElementById('edit-module-title');
+    const editModuleDescription = document.getElementById('edit-module-description');
+    const existingImagePath = document.getElementById('existing-image-path');
+    const currentImage = document.getElementById('current-module-image');
+    const noImageText = document.getElementById('no-image-text');
+     // Get the file input and file name span
+    const editFileInput = document.getElementById('edit-module-image');
+    const editFileName = document.getElementById('edit-file-name');
+
+    // Add event listener for file input change
+    editFileInput.addEventListener('change', function (e) {
+        const file = e.target.files[0];
+        if (file) {
+            // Update the file name span with the selected file name
+            editFileName.textContent = file.name;
+        } else {
+            // Reset the file name span if no file is selected
+            editFileName.textContent = 'No file chosen';
+        }
+    });
+    // Add event listener to all edit buttons
+    document.querySelectorAll('.open-edit-modal').forEach(button => {
+        button.addEventListener('click', function () {
+            // Get data from button
+            const moduleId = this.getAttribute('data-id');
+            const title = this.getAttribute('data-title');
+            const description = this.getAttribute('data-description');
+            const imagePath = this.getAttribute('data-image');
+
+            // Populate modal fields
+            editModuleId.value = moduleId;
+            editModuleTitle.value = title;
+            editModuleDescription.value = description;
+            existingImagePath.value = imagePath;
+
+            // Handle image display
+            if (imagePath && imagePath !== '') {
+                currentImage.src = imagePath;
+                currentImage.classList.remove('hidden');
+                noImageText.classList.add('hidden');
+            } else {
+                currentImage.classList.add('hidden');
+                noImageText.classList.remove('hidden');
+            }
+
+            // Show modal
+            editModal.classList.remove('hidden');
+            editModal.classList.add('flex');
+            document.body.style.overflow = 'hidden'; // Prevent scrolling behind modal
+        });
+    });
+
+    // Close modal function
+    function closeModal() {
+        editModal.classList.add('hidden');
+        editModal.classList.remove('flex');
+        document.body.style.overflow = 'auto';
+    }
+
+    // Add event listeners for closing modal
+    document.getElementById('close-edit-modal').addEventListener('click', closeModal);
+    document.getElementById('cancel-edit').addEventListener('click', closeModal);
+
+    // Close modal if clicking outside of it
+    editModal.addEventListener('click', function (e) {
+        if (e.target === editModal) {
+            closeModal();
+        }
+    });
+});
+</script>
+
+ <!-- Module Parts Tab with Dynamic Sections -->
+<div id="module-parts-section" class="tab-content hidden">
+    <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+        <h2 class="text-xl font-bold mb-6 text-gray-800">Add New Module Part</h2>
+        <form id="add-module-part-form" class="space-y-4" method="POST" action="database/add_module_part.php" enctype="multipart/form-data">
+            <div>
+                <label for="select-module" class="block mb-2 font-medium text-gray-700">Select Module</label>
+                <select id="select-module" name="module_id" class="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                    <option value="">-- Select a Module --</option>
+                    <?php
+                    // Establish a new connection for this section
+                    $conn_modules = new mysqli(getenv('MYSQLHOST') ?: 'tramway.proxy.rlwy.net', getenv('MYSQLUSER') ?: 'root', getenv('MYSQLPASSWORD') ?: 'niCcpkrZKKhLDhXeTbcbhIYSFJBfNibP', getenv('MYSQLDATABASE') ?: 'railway', intval(getenv('MYSQLPORT') ?: 10241));
+                    if ($conn_modules->connect_error) {
+                        die("Connection failed: " . $conn_modules->connect_error);
+                    }
+
+                    // Only fetch published modules
+                    $modules_result = $conn_modules->query("SELECT id, title FROM modules WHERE status = 'published' ORDER BY title");
+                    
+                    if ($modules_result && $modules_result->num_rows > 0) {
+                        while ($module = $modules_result->fetch_assoc()) {
+                            echo '<option value="' . $module['id'] . '">' . htmlspecialchars($module['title']) . '</option>';
+                        }
+                    }
+                    $conn_modules->close();
+                    ?>
+                </select>
+            </div>
+            <div>
+                <label for="part-title" class="block mb-2 font-medium text-gray-700">Module Part Title</label>
+                <input type="text" id="part-title" name="part_title" class="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+            </div>
+            
+            <!-- Module Part Sections Container -->
+            <div id="module-sections-container" class="space-y-6 border-t border-gray-200 pt-4">
+                <!-- Section 1 (default section) -->
+                <div class="module-section bg-gray-50 p-4 rounded-md" data-section-id="1">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-bold text-gray-700">Section 1</h3>
+                        <button type="button" class="remove-section px-2 py-1 text-red-600 hover:bg-red-100 rounded-md" disabled>
+                            Remove
+                        </button>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block mb-2 font-medium text-gray-700">Module Sub-Title</label>
+                            <input type="text" name="sections[1][subtitle]" class="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                        </div>
+                        <div>
+                        <label class="block mb-2 font-medium text-gray-700">Content</label>
+                        <textarea id="section-1-content" name="sections[1][content]" rows="5" class="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 tinymce-editor" required></textarea>
+                    </div>
+                   
+                    <!-- remove the checkbox for sub-quiz -->
+                        <!-- <div class="flex items-center">
+                            <input type="checkbox" id="section-1-has-subquiz" name="sections[1][has_subquiz]" class="section-has-subquiz mr-2" data-section-id="1">
+                            <label for="section-1-has-subquiz" class="text-gray-700">Add Sub-Quiz to this Section</label>
+                        </div> -->
+                        
+                        <!-- Sub-Quiz Section - initially hidden -->
+                        <div id="section-1-subquiz" class="section-subquiz hidden space-y-4 p-4 border border-blue-200 rounded-md bg-blue-50">
+                            <h4 class="font-medium text-blue-800">Quiz Questions</h4>
+                            
+                            <div id="section-1-quiz-questions" class="quiz-questions-container">
+                                <!-- Quiz questions will be added here dynamically -->
+                            </div>
+                            
+                            <button type="button" class="add-question-btn px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500" data-section-id="1">
+                                Add Question
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Add Section Button -->
+            <div class="flex justify-center">
+                <button type="button" id="add-section-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    Add New Section
+                </button>
+            </div>
+            
+            <div class="pt-4">
+                <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    Add Module Part
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <h2 class="text-xl font-bold mb-6 text-gray-800">Existing Module Parts</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <?php
+        // Establish a new connection for module parts
+        $conn_parts = new mysqli(getenv('MYSQLHOST') ?: 'tramway.proxy.rlwy.net', getenv('MYSQLUSER') ?: 'root', getenv('MYSQLPASSWORD') ?: 'niCcpkrZKKhLDhXeTbcbhIYSFJBfNibP', getenv('MYSQLDATABASE') ?: 'railway', intval(getenv('MYSQLPORT') ?: 10241));
+        if ($conn_parts->connect_error) {
+            die("Connection failed: " . $conn_parts->connect_error);
+        }
+
+        // Modified query to get module parts with module info
+        $query = "SELECT mp.*, m.title as module_title, 
+                 (SELECT COUNT(*) FROM module_sections WHERE module_part_id = mp.id) as section_count
+                 FROM module_parts mp 
+                 JOIN modules m ON mp.module_id = m.id 
+                 ORDER BY mp.created_at DESC";
+                 
+        $result = $conn_parts->query($query);
+
+        if ($result && $result->num_rows > 0) {
+            while ($row = $result->fetch_assoc()) {
+                echo '<div class="bg-white rounded-lg shadow-md overflow-hidden">';
+                echo '<div class="p-6">';
+                echo '<span class="text-sm bg-blue-100 text-blue-600 px-2 py-1 rounded">' . htmlspecialchars($row['module_title']) . '</span>';
+                echo '<h3 class="text-lg font-bold mt-2 mb-2 text-gray-800">' . htmlspecialchars($row['title']) . '</h3>';
+                echo '<p class="text-gray-600 mb-4">' . $row['section_count'] . ' sections</p>';
+                echo '<div class="flex justify-end space-x-2">';
+                echo '<button class="px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 open-edit-part-modal" 
+                        data-id="' . $row['id'] . '" 
+                        data-module-id="' . $row['module_id'] . '"
+                        data-title="' . htmlspecialchars($row['title']) . '">Edit</button>';
+                echo '<form method="POST" action="database/delete_module_part.php" class="inline">';
+                echo '<input type="hidden" name="module_part_id" value="' . $row['id'] . '">';
+                echo '<button type="submit" class="px-3 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200" 
+                        onclick="return confirm(\'Are you sure you want to delete this module part?\')">Delete</button>';
+                echo '</form>';
+                echo '</div>';
+                echo '</div>';
+                echo '</div>';
+            }
+        } else {
+            echo '<div class="col-span-full text-center py-8 text-gray-500">No module parts found. Create your first module part above.</div>';
+        }
+        $conn_parts->close();
+        ?>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Global counter for sections
+    let sectionCounter = 1;
+    
+    // Global counter for questions (across all sections)
+    let questionCounters = {
+        1: 0 // Initialize counter for the first section
+    };
+    
+    // Add Section Button
+    const addSectionBtn = document.getElementById('add-section-btn');
+    const moduleSectionsContainer = document.getElementById('module-sections-container');
+    
+    // Add event listener for adding new sections
+    addSectionBtn.addEventListener('click', function() {
+        sectionCounter++;
+        
+        // Initialize question counter for this new section
+        questionCounters[sectionCounter] = 0;
+        
+         // Create new section element
+    const newSection = document.createElement('div');
+    newSection.className = 'module-section bg-gray-50 p-4 rounded-md';
+    newSection.dataset.sectionId = sectionCounter;
+    
+    newSection.innerHTML = `
+        <div class="flex justify-between items-center mb-3">
+            <h3 class="font-bold text-gray-700">Section ${sectionCounter}</h3>
+            <button type="button" class="remove-section px-2 py-1 text-red-600 hover:bg-red-100 rounded-md">
+                Remove
+            </button>
+        </div>
+        <div class="space-y-4">
+            <div>
+                <label class="block mb-2 font-medium text-gray-700">Module Sub-Title</label>
+                <input type="text" name="sections[${sectionCounter}][subtitle]" class="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+            </div>
+            <div>
+                <label class="block mb-2 font-medium text-gray-700">Content</label>
+                <textarea id="section-${sectionCounter}-content" name="sections[${sectionCounter}][content]" rows="5" class="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 tinymce-editor" required></textarea>
+            </div>
+            <div class="flex items-center">
+                <input type="checkbox" id="section-${sectionCounter}-has-subquiz" name="sections[${sectionCounter}][has_subquiz]" class="section-has-subquiz mr-2" data-section-id="${sectionCounter}">
+                <label for="section-${sectionCounter}-has-subquiz" class="text-gray-700">Add Sub-Quiz to this Section</label>
+            </div>
+            
+            <!-- Sub-Quiz Section - initially hidden -->
+            <div id="section-${sectionCounter}-subquiz" class="section-subquiz hidden space-y-4 p-4 border border-blue-200 rounded-md bg-blue-50">
+                <h4 class="font-medium text-blue-800">Quiz Questions</h4>
+                
+                <div id="section-${sectionCounter}-quiz-questions" class="quiz-questions-container">
+                    <!-- Quiz questions will be added here dynamically -->
+                </div>
+                
+                <button type="button" class="add-question-btn px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500" data-section-id="${sectionCounter}">
+                    Add Question
+                </button>
+            </div>
+        </div>
+        `;
+        
+        moduleSectionsContainer.appendChild(newSection);
+         // Initialize TinyMCE for the new content textarea
+         tinymce.init({
+        selector: `#section-${sectionCounter}-content`,
+        plugins: 'advlist autolink lists link image charmap preview anchor pagebreak',
+        toolbar_mode: 'floating',
+        toolbar: 'undo redo | styleselect | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image',
+        height: 300,
+        images_upload_url: 'database/upload_image.php', // Same upload handler
+        setup: function(editor) {
+            editor.on('init', function() {
+                editor.on('change', function() {
+                    editor.save();
+                });
+            });
+        }
+    });
+    
+    // Add event listeners for the new section
+    setupSectionEventListeners(newSection);
+});
+    
+    
+    // Function to set up event listeners for a section
+    function setupSectionEventListeners(sectionElement) {
+        // Remove Section Button
+        const removeBtn = sectionElement.querySelector('.remove-section');
+        if (removeBtn) {
+            removeBtn.addEventListener('click', function() {
+                if (confirm('Are you sure you want to remove this section?')) {
+                    const sectionId = sectionElement.dataset.sectionId;
+                    // Remove question counter for this section
+                    delete questionCounters[sectionId];
+                    // Remove the section element
+                    sectionElement.remove();
+                }
+            });
+        }
+        
+        // Sub-Quiz Checkbox
+        const subquizCheckbox = sectionElement.querySelector('.section-has-subquiz');
+        if (subquizCheckbox) {
+            const sectionId = subquizCheckbox.dataset.sectionId;
+            const subquizSection = document.getElementById(`section-${sectionId}-subquiz`);
+            
+            subquizCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    subquizSection.classList.remove('hidden');
+                    // Add at least one question by default if none exist
+                    if (questionCounters[sectionId] === 0) {
+                        addQuizQuestion(sectionId);
+                    }
+                } else {
+                    subquizSection.classList.add('hidden');
+                }
+            });
+        }
+        
+        // Add Question Button
+        const addQuestionBtn = sectionElement.querySelector('.add-question-btn');
+        if (addQuestionBtn) {
+            const sectionId = addQuestionBtn.dataset.sectionId;
+            
+            addQuestionBtn.addEventListener('click', function() {
+                addQuizQuestion(sectionId);
+            });
+        }
+    }
+    
+    // Function to add a quiz question to a specific section
+    function addQuizQuestion(sectionId) {
+        questionCounters[sectionId]++;
+        const questionCounter = questionCounters[sectionId];
+        
+        const questionsContainer = document.getElementById(`section-${sectionId}-quiz-questions`);
+        const questionDiv = document.createElement('div');
+        questionDiv.className = 'quiz-question p-3 mb-4 bg-white border border-gray-200 rounded-md';
+        questionDiv.dataset.questionId = questionCounter;
+        
+        questionDiv.innerHTML = `
+            <div class="flex justify-between mb-2">
+                <h4 class="font-medium">Question ${questionCounter}</h4>
+                <button type="button" class="remove-question px-2 py-1 text-red-600 hover:bg-red-100 rounded-md">
+                    Remove
+                </button>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="block mb-1 text-sm font-medium text-gray-700">Question Text</label>
+                    <input type="text" name="sections[${sectionId}][quiz_questions][${questionCounter}][question_text]" class="w-full px-3 py-2 border rounded-md" required>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block mb-1 text-sm font-medium text-gray-700">Option 1</label>
+                        <input type="text" name="sections[${sectionId}][quiz_questions][${questionCounter}][option1]" class="w-full px-3 py-2 border rounded-md" required>
+                    </div>
+                    <div>
+                        <label class="block mb-1 text-sm font-medium text-gray-700">Option 2</label>
+                        <input type="text" name="sections[${sectionId}][quiz_questions][${questionCounter}][option2]" class="w-full px-3 py-2 border rounded-md" required>
+                    </div>
+                    <div>
+                        <label class="block mb-1 text-sm font-medium text-gray-700">Option 3</label>
+                        <input type="text" name="sections[${sectionId}][quiz_questions][${questionCounter}][option3]" class="w-full px-3 py-2 border rounded-md" required>
+                    </div>
+                    <div>
+                        <label class="block mb-1 text-sm font-medium text-gray-700">Option 4</label>
+                        <input type="text" name="sections[${sectionId}][quiz_questions][${questionCounter}][option4]" class="w-full px-3 py-2 border rounded-md" required>
+                    </div>
+                </div>
+                <div>
+                    <label class="block mb-1 text-sm font-medium text-gray-700">Correct Answer</label>
+                    <select name="sections[${sectionId}][quiz_questions][${questionCounter}][correct_answer]" class="w-full px-3 py-2 border rounded-md" required>
+                        <option value="">-- Select Correct Option --</option>
+                        <option value="1">Option 1</option>
+                        <option value="2">Option 2</option>
+                        <option value="3">Option 3</option>
+                        <option value="4">Option 4</option>
+                    </select>
+                </div>
+            </div>
+        `;
+        
+        questionsContainer.appendChild(questionDiv);
+        
+        // Add event listener to the remove question button
+        const removeBtn = questionDiv.querySelector('.remove-question');
+        removeBtn.addEventListener('click', function() {
+            questionDiv.remove();
+            
+            // Check if there are any questions left in this section
+            if (questionsContainer.children.length === 0) {
+                const subquizCheckbox = document.getElementById(`section-${sectionId}-has-subquiz`);
+                const subquizSection = document.getElementById(`section-${sectionId}-subquiz`);
+                
+                // Uncheck the checkbox and hide the quiz section
+                if (subquizCheckbox) {
+                    subquizCheckbox.checked = false;
+                }
+                if (subquizSection) {
+                    subquizSection.classList.add('hidden');
+                }
+            }
+        });
+    }
+    
+    // Set up event listeners for the default section
+    setupSectionEventListeners(document.querySelector('.module-section'));
+    
+    // Form submission handler
+    document.getElementById('add-module-part-form').addEventListener('submit', function(e) {
+
+        tinymce.triggerSave();
+        
+        // Validate each section with a sub-quiz has at least one question
+        const sections = document.querySelectorAll('.module-section');
+        let isValid = true;
+        
+        sections.forEach(section => {
+            const sectionId = section.dataset.sectionId;
+            const hasSubquiz = section.querySelector(`.section-has-subquiz`).checked;
+            const questionsContainer = document.getElementById(`section-${sectionId}-quiz-questions`);
+            
+            if (hasSubquiz && (!questionsContainer || questionsContainer.children.length === 0)) {
+                isValid = false;
+                alert(`Section ${sectionId} has a sub-quiz enabled but no questions. Please add at least one question or disable the sub-quiz.`);
+            }
+        });
+        
+        if (!isValid) {
+            e.preventDefault();
+        }
+    });
+});
+</script>
+
+<!-- Module Parts Edit Modal -->
+<div id="edit-module-part-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4">
+        <div class="border-b px-6 py-4 flex justify-between items-center">
+            <h3 class="text-lg font-bold text-gray-800">Edit Module Part</h3>
+            <button id="close-edit-part-modal" class="text-gray-500 hover:text-gray-700">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+            </button>
+        </div>
+        <form id="edit-module-part-form" class="p-6 space-y-4" method="POST" action="database/edit_module_part.php">
+            <input type="hidden" id="edit-part-id" name="module_part_id" value="">
+            <div>
+                <label for="edit-part-module" class="block mb-2 font-medium text-gray-700">Select Module</label>
+                <select id="edit-part-module" name="module_id" class="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                    <?php
+                    $modules = $conn->query("SELECT id, title FROM modules ORDER BY title");
+                    while ($module = $modules->fetch_assoc()) {
+                        echo '<option value="' . $module['id'] . '">' . htmlspecialchars($module['title']) . '</option>';
+                    }
+                    ?>
+                </select>
+            </div>
+            <div>
+                <label for="edit-part-title" class="block mb-2 font-medium text-gray-700">Module Part Title</label>
+                <input type="text" id="edit-part-title" name="part_title" class="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+            </div>
+            <div id="edit-sections-container" class="space-y-6 border-t border-gray-200 pt-4">
+                <!-- Sections will be loaded here -->
+            </div>
+            <div class="flex justify-end space-x-3 pt-4">
+                <button type="button" id="cancel-edit-part" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-300">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// JavaScript for Edit Module Part Modal
+document.addEventListener('DOMContentLoaded', function () {
+    // Get modal elements
+    const editPartModal = document.getElementById('edit-module-part-modal');
+    const editPartId = document.getElementById('edit-part-id');
+    const editPartTitle = document.getElementById('edit-part-title');
+    const editSectionsContainer = document.getElementById('edit-sections-container');
+
+    // Add event listener to all edit buttons for module parts
+    document.querySelectorAll('.open-edit-part-modal').forEach(button => {
+        button.addEventListener('click', function () {
+            // Get data from button
+            const partId = this.getAttribute('data-id');
+            const title = this.getAttribute('data-title');
+            const description = this.getAttribute('data-description');
+            const imagePath = this.getAttribute('data-image');
+
+            // Populate modal fields
+            editPartId.value = partId;
+            editPartTitle.value = title;
+
+            // Load existing sections for this module part
+            loadExistingSections(partId);
+
+            // Show modal
+            editPartModal.classList.remove('hidden');
+            editPartModal.classList.add('flex');
+            document.body.style.overflow = 'hidden'; // Prevent scrolling behind modal
+        });
+    });
+
+    // Close modal function
+    function closePartModal() {
+        editPartModal.classList.add('hidden');
+        editPartModal.classList.remove('flex');
+        document.body.style.overflow = 'auto';
+    }
+
+    // Add event listeners for closing modal
+    document.getElementById('close-edit-part-modal').addEventListener('click', closePartModal);
+    document.getElementById('cancel-edit-part').addEventListener('click', closePartModal);
+
+    // Close modal if clicking outside of it
+    editPartModal.addEventListener('click', function (e) {
+        if (e.target === editPartModal) {
+            closePartModal();
+        }
+    });
+});
+
+// Function to load existing sections for a module part into the edit modal
+function loadExistingSections(partId) {
+    const container = document.getElementById('edit-sections-container');
+    container.innerHTML = ''; // Clear existing sections
+
+    // Fetch sections from the server
+    fetch('database/get_module_part_sections.php?part_id=' + partId)
+        .then(response => response.json())
+        .then(sections => {
+            sections.forEach(section => {
+                const sectionDiv = document.createElement('div');
+                sectionDiv.className = 'module-section bg-gray-50 p-4 rounded-md';
+                sectionDiv.dataset.sectionId = section.id; // Assuming section object has an id
+
+                sectionDiv.innerHTML = `
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-bold text-gray-700">Section ${section.id}</h3>
+                        <button type="button" class="remove-section px-2 py-1 text-red-600 hover:bg-red-100 rounded-md">
+                            Remove
+                        </button>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block mb-2 font-medium text-gray-700">Module Sub-Title</label>
+                            <input type="text" name="sections[${section.id}][subtitle]" class="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" value="${section.subtitle}" required>
+                        </div>
+                        <div>
+                            <label class="block mb-2 font-medium text-gray-700">Content</label>
+                            <textarea id="section-${section.id}-content" name="sections[${section.id}][content]" rows="5" class="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 tinymce-editor" required>${section.content}</textarea>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" id="section-${section.id}-has-subquiz" name="sections[${section.id}][has_subquiz]" class="section-has-subquiz mr-2" data-section-id="${section.id}" ${section.has_subquiz ? 'checked' : ''}>
+                            <label for="section-${section.id}-has-subquiz" class="text-gray-700">Add Sub-Quiz to this Section</label>
+                        </div>
+                        
+                        <!-- Sub-Quiz Section - initially hidden -->
+                        <div id="section-${section.id}-subquiz" class="section-subquiz ${section.has_subquiz ? '' : 'hidden'} space-y-4 p-4 border border-blue-200 rounded-md bg-blue-50">
+                            <h4 class="font-medium text-blue-800">Quiz Questions</h4>
+                            
+                            <div id="section-${section.id}-quiz-questions" class="quiz-questions-container">
+                                ${section.quiz_questions.map(question => `
+                                    <div class="quiz-question p-3 mb-4 bg-white border border-gray-200 rounded-md" data-question="${question.id}">
+                                        <div class="flex justify-between mb-2">
+                                            <h4 class="font-medium">Question ${question.id}</h4>
+                                            <button type="button" class="remove-question px-2 py-1 text-red-600 hover:bg-red-100 rounded-md">
+                                                Remove
+                                            </button>
+                                        </div>
+                                        <div class="space-y-3">
+                                            <div>
+                                                <label class="block mb-1 text-sm font-medium text-gray-700">Question Text</label>
+                                                <input type="text" name="sections[${section.id}][quiz_questions][${question.id}][question_text]" class="w-full px-3 py-2 border rounded-md" value="${question.question_text}" required>
+                                            </div>
+                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                <div>
+                                                    <label class="block mb-1 text-sm font-medium text-gray-700">Option 1</label>
+                                                    <input type="text" name="sections[${section.id}][quiz_questions][${question.id}][option1]" class="w-full px-3 py-2 border rounded-md" value="${question.options[0]}" required>
+                                                </div>
+                                                <div>
+                                                    <label class="block mb-1 text-sm font-medium text-gray-700">Option 2</label>
+                                                    <input type="text" name="sections[${section.id}][quiz_questions][${question.id}][option2]" class="w-full px-3 py-2 border rounded-md" value="${question.options[1]}" required>
+                                                </div>
+                                                <div>
+                                                    <label class="block mb-1 text-sm font-medium text-gray-700">Option 3</label>
+                                                    <input type="text" name="sections[${section.id}][quiz_questions][${question.id}][option3]" class="w-full px-3 py-2 border rounded-md" value="${question.options[2]}" required>
+                                                </div>
+                                                <div>
+                                                    <label class="block mb-1 text-sm font-medium text-gray-700">Option 4</label>
+                                                    <input type="text" name="sections[${section.id}][quiz_questions][${question.id}][option4]" class="w-full px-3 py-2 border rounded-md" value="${question.options[3]}" required>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label class="block mb-1 text-sm font-medium text-gray-700">Correct Answer</label>
+                                                <select name="sections[${section.id}][quiz_questions][${question.id}][correct_answer]" class="w-full px-3 py-2 border rounded-md" required>
+                                                    <option value="">-- Select Correct Option --</option>
+                                                    <option value="1" ${question.correct_answer == 1 ? 'selected' : ''}>Option 1</option>
+                                                    <option value="2" ${question.correct_answer == 2 ? 'selected' : ''}>Option 2</option>
+                                                    <option value="3" ${question.correct_answer == 3 ? 'selected' : ''}>Option 3</option>
+                                                    <option value="4" ${question.correct_answer == 4 ? 'selected' : ''}>Option 4</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            
+                            <button type="button" class="add-question-btn px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500" data-section-id="${section.id}">
+                                Add Question
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(sectionDiv);
+
+                // Initialize TinyMCE for the loaded section content
+                tinymce.init({
+                    selector: `#section-${section.id}-content`,
+                    plugins: 'advlist autolink lists link image charmap preview anchor pagebreak',
+                    toolbar_mode: 'floating',
+                    toolbar: 'undo redo | styleselect | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image',
+                    height: 300,
+                    setup: function(editor) {
+                        editor.on('init', function() {
+                            editor.on('change', function() {
+                                editor.save();
+                            });
+                        });
+                    }
+                });
+
+                // Set up event listeners for the loaded section
+                setupSectionEventListeners(sectionDiv);
+            });
+        })
+        .catch(error => console.error('Error loading sections:', error));
+}
+</script>
+
+<!-- Final Quiz Tab -->
+<div id="final-quiz-section" class="tab-content hidden">
+    <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+        <h2 class="text-xl font-bold mb-6 text-gray-800">Add Final Quiz</h2>
+        <form id="add-final-quiz-form" class="space-y-4" method="POST" action="database/add_final_quiz.php">
+            <div>
+                <label for="quiz-module" class="block mb-2 font-medium text-gray-700">Select Module</label>
+                <select id="quiz-module" name="module_id" class="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                    <option value="">-- Select a Module --</option>
+                    <?php
+                    // Fetch modules from the database
+                    $modules = $conn->query("SELECT id, title FROM modules ORDER BY title");
+                    while ($module = $modules->fetch_assoc()) {
+                        echo '<option value="' . $module['id'] . '">' . htmlspecialchars($module['title']) . '</option>';
+                    }
+                    ?>
+                </select>
+            </div>
+            <div>
+                <label for="quiz-title" class="block mb-2 font-medium text-gray-700">Quiz Title</label>
+                <input type="text" id="quiz-title" name="quiz_title" class="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+            </div>
+            <div id="quiz-questions-container" class="space-y-4">
+                <h3 class="font-medium text-gray-700">Quiz Questions</h3>
+                <!-- Questions will be added here dynamically -->
+            </div>
+            <div class="space-y-4">
+                <button type="button" id="add-quiz-question" class="px-4 py-2 bg-blue-100 text-blue-600 rounded-md hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-300">
+                    + Add Question
+                </button>
+                <button type="submit" class="w-full px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    Save Final Quiz
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <h2 class="text-xl font-bold mb-6 text-gray-800">Existing Final Quizzes</h2>
+    <div id="existing-quizzes" class="space-y-4">
+        <!-- Existing quizzes will be loaded here -->
+    </div>
+</div>
+
+<script>
+let questionCount = 0;
+
+// Function to add new question
+function addQuizQuestion() {
+    questionCount++;
+    const questionHTML = `
+        <div class="quiz-question p-3 mb-4 bg-white border border-gray-200 rounded-md" data-question="${questionCount}">
+            <div class="flex justify-between mb-2">
+                <h4 class="font-medium">Question ${questionCount}</h4>
+                <button type="button" class="delete-question px-2 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200">
+                    Remove
+                </button>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="block mb-1 text-sm font-medium text-gray-700">Question Text</label>
+                    <input type="text" name="questions[${questionCount}][text]" class="w-full px-3 py-2 border rounded-md" required>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block mb-1 text-sm font-medium text-gray-700">Option 1</label>
+                        <input type="text" name="questions[${questionCount}][options][]" class="w-full px-3 py-2 border rounded-md" required>
+                    </div>
+                    <div>
+                        <label class="block mb-1 text-sm font-medium text-gray-700">Option 2</label>
+                        <input type="text" name="questions[${questionCount}][options][]" class="w-full px-3 py-2 border rounded-md" required>
+                    </div>
+                    <div>
+                        <label class="block mb-1 text-sm font-medium text-gray-700">Option 3</label>
+                        <input type="text" name="questions[${questionCount}][options][]" class="w-full px-3 py-2 border rounded-md" required>
+                    </div>
+                    <div>
+                        <label class="block mb-1 text-sm font-medium text-gray-700">Option 4</label>
+                        <input type="text" name="questions[${questionCount}][options][]" class="w-full px-3 py-2 border rounded-md" required>
+                    </div>
+                </div>
+                <div>
+                    <label class="block mb-1 text-sm font-medium text-gray-700">Correct Answer</label>
+                    <select name="questions[${questionCount}][correct]" class="w-full px-3 py-2 border rounded-md" required>
+                        <option value="">-- Select Correct Option --</option>
+                        <option value="1">Option 1</option>
+                        <option value="2">Option 2</option>
+                        <option value="3">Option 3</option>
+                        <option value="4">Option 4</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('quiz-questions-container').insertAdjacentHTML('beforeend', questionHTML);
+    attachQuestionEventListeners(document.querySelector(`.quiz-question[data-question="${questionCount}"]`));
+}
+
+// Update the attachQuestionEventListeners function
+function attachQuestionEventListeners(questionElement) {
+    questionElement.querySelector('.delete-question').addEventListener('click', function() {
+        if (document.querySelectorAll('.quiz-question').length > 1) {
+            questionElement.remove();
+        } else {
+            alert('Quiz must have at least one question.');
+        }
+    });
+}
+
+// Add first question by default
+document.addEventListener('DOMContentLoaded', function() {
+    addQuizQuestion();
+    
+    // Add question button event listener
+    document.getElementById('add-quiz-question').addEventListener('click', addQuizQuestion);
+
+    // Form submission handler
+    document.getElementById('add-final-quiz-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (validateQuizForm(this)) {
+            this.submit();
+        }
+    });
+
+    // Load existing quizzes
+    loadExistingQuizzes();
+});
+
+// Form validation
+function validateQuizForm(form) {
+    if (!form.quiz_title.value.trim()) {
+        alert('Please enter a quiz title');
+        return false;
+    }
+    if (!form.module_id.value) {
+        alert('Please select a module');
+        return false;
+    }
+    const questions = form.querySelectorAll('.quiz-question');
+    if (questions.length === 0) {
+        alert('Please add at least one question');
+        return false;
+    }
+    return true;
+}
+
+// Load existing quizzes
+function loadExistingQuizzes() {
+    fetch('database/get_final_quizzes.php')
+        .then(response => response.json())
+        .then(quizzes => {
+            const container = document.getElementById('existing-quizzes');
+            container.innerHTML = quizzes.length ? '' : '<p class="text-gray-500 text-center">No quizzes found</p>';
+            
+            quizzes.forEach(quiz => {
+                container.innerHTML += `
+                    <div class="bg-white rounded-lg shadow-md p-6">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <span class="text-sm bg-blue-100 text-blue-600 px-2 py-1 rounded">
+                                    ${quiz.module_title}
+                                </span>
+                                <h3 class="text-lg font-bold mt-2 mb-2 text-gray-800">${quiz.title}</h3>
+                                <p class="text-gray-600">${quiz.question_count} questions</p>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button onclick="editQuiz(${quiz.id})" class="px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200">
+                                    Edit
+                                </button>
+                                <button onclick="deleteQuiz(${quiz.id})" class="px-3 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200">
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        })
+        .catch(error => console.error('Error loading quizzes:', error));
+}
+
+// Delete quiz function 
+function deleteQuiz(quizId) {
+    if (confirm('Are you sure you want to delete this quiz? This action cannot be undone.')) {
+        fetch(`database/delete_final_quizzes.php?id=${quizId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Reload quizzes list
+                    loadExistingQuizzes();
+                    // Show success message
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'bg-green-100 text-green-800 px-4 py-3 rounded mb-4';
+                    alertDiv.textContent = 'Quiz deleted successfully';
+                    const container = document.getElementById('final-quiz-section');
+                    container.insertBefore(alertDiv, container.firstChild);
+                    setTimeout(() => alertDiv.remove(), 3000);
+                } else {
+                    throw new Error(data.message || 'Failed to delete quiz');
+                }
+            })
+            .catch(error => {
+                alert('Error deleting quiz: ' + error.message);
+            });
+    }
+}
+
+// Quiz editing will be implemented later
+function editQuiz(quizId) {
+    alert('Quiz editing feature coming soon!');
+}
+</script>
+    <script>
+   
+// Tab switching function
+function switchTab(tabName) {
+    // Hide all tab content
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.add('hidden');
+    });
+    
+    // Show selected tab content
+    document.getElementById(tabName + '-section').classList.remove('hidden');
+    
+    // Update active tab styling
+    // Restrict to the module tabs nav only so the top nav profile button is not affected
+    document.querySelectorAll('nav.bg-blue-600 button').forEach(button => {
+        button.classList.remove('bg-blue-700');
+        button.classList.add('hover:bg-blue-700');
+    });
+    
+    document.getElementById(tabName + '-tab').classList.add('bg-blue-700');
+    document.getElementById(tabName + '-tab').classList.remove('hover:bg-blue-700');
+    
+    // Store the active tab in session storage
+    sessionStorage.setItem('activeModuleTab', tabName);
+}
+
+// Initialize by showing the correct tab
+window.onload = function() {
+    // Check URL parameters first
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    
+    // Check session storage next
+    const savedTab = sessionStorage.getItem('activeModuleTab');
+    
+    // Default to 'modules' if no saved tab
+    const activeTab = tabParam || savedTab || 'modules';
+    
+    switchTab(activeTab);
+    
+    // If there's a status message in the URL, display it
+    const status = urlParams.get('status');
+    const message = urlParams.get('message');
+    
+    if (status && message) {
+        const alertClass = status === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+        
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `${alertClass} px-4 py-3 rounded mb-4`;
+        alertDiv.textContent = message;
+        
+        // Insert the alert at the top of the active tab section
+        const activeSection = document.getElementById(activeTab + '-section');
+        activeSection.insertBefore(alertDiv, activeSection.firstChild);
+        
+        // Remove the alert after 5 seconds
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
+};
+    </script>
+</main>
+<script>
+    // DOM Elements
+    const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+    const toggleSidebarBtn = document.getElementById('toggle-sidebar');
+    const sidebar = document.getElementById('sidebar');
+    const mainContent = document.getElementById('main-content');
+    const navTexts = document.querySelectorAll('.nav-text');
+    const backdrop = document.getElementById('backdrop');
+    
+    // Navigation items
+    const dashboardItem = document.getElementById('dashboard-item');
+    const modulesItem = document.getElementById('modules-item');
+    const assessmentsItem = document.getElementById('assessments-item');
+    
+    // Navigation links
+    const dashboardLink = document.getElementById('dashboard-link');
+    const modulesLink = document.getElementById('modules-link');
+    const assessmentsLink = document.getElementById('assessments-link');
+    
+    // Profile dropdown elements
+    const profileToggle = document.getElementById('profile-toggle');
+    const profileDropdown = document.getElementById('profile-dropdown');
+    
+    // Toggle profile dropdown on click
+    profileToggle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        profileDropdown.classList.toggle('show');
+    });
+    
+    // Close dropdown when clicking elsewhere on the page
+    document.addEventListener('click', function(e) {
+        if (!profileToggle.contains(e.target) && !profileDropdown.contains(e.target)) {
+            profileDropdown.classList.remove('show');
+        }
+    });
+    
+    // Function to handle active page styling
+    function setActivePage() {
+        const currentPage = window.location.pathname.split('/').pop(); // Get the current page file name
+        
+        // Reset all links
+        [dashboardItem, modulesItem, assessmentsItem,].forEach(item => {
+            item.classList.remove('active');
+        });
+        
+        // Highlight the active link based on the current page
+        if (currentPage === 'Adashboard.php' || currentPage === '' || currentPage === '/') {
+            dashboardItem.classList.add('active');
+        } else if (currentPage === 'Amodule.php') {
+            modulesItem.classList.add('active');
+        } else if (currentPage === 'Amanagement.php') {
+            assessmentsItem.classList.add('active');
+        }else {
+            // Default to dashboard if no match
+            dashboardItem.classList.add('active');
+        }
+    }
+    
+    // Toggle sidebar collapse
+    toggleSidebarBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('sidebar-collapsed');
+        mainContent.classList.toggle('main-content-collapsed');
+        if (sidebar.classList.contains('sidebar-collapsed')) {
+            navTexts.forEach(text => text.classList.add('hidden'));
+        } else {
+            setTimeout(() => {
+                navTexts.forEach(text => text.classList.remove('hidden'));
+            }, 150); // Small delay for better animation
+        }
+    });
+    
+    // Check screen width and apply responsive design
+    function checkScreenSize() {
+        if (window.innerWidth < 768) {
+            sidebar.classList.remove('sidebar-collapsed'); // Always keep full width for mobile
+            mainContent.classList.remove('main-content-collapsed');
+            sidebar.classList.remove('mobile-visible');
+            backdrop.classList.remove('active');
+        }
+    }
+    
+    // Run on load and on resize
+    window.addEventListener('resize', checkScreenSize);
+    checkScreenSize();
+    
+    // Call the function to set the active page on load
+    setActivePage();
+    
+    // Mobile menu toggle
+    mobileMenuToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('mobile-visible');
+        backdrop.classList.toggle('active');
+    });
+    
+    // Close sidebar when clicking on backdrop
+    backdrop.addEventListener('click', () => {
+        sidebar.classList.remove('mobile-visible');
+        backdrop.classList.remove('active');
+    });
+    
+    // Make dashboard active by default
+    if (!dashboardItem.classList.contains('active') && 
+        !modulesItem.classList.contains('active') && 
+        !assessmentsItem.classList.contains('active')) {
+        dashboardItem.classList.add('active');
+    }
+    
+
+    // Initialize TinyMCE for all textareas with class 'tinymce-editor'
+tinymce.init({
+    selector: '#section-1-content',
+    plugins: 'image advlist autolink lists link charmap preview anchor pagebreak',
+    toolbar_mode: 'floating',
+    toolbar: 'undo redo | styleselect | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image',
+    height: 300,
+    images_upload_url: 'database/upload_image.php', // Relative path from current file
+    images_upload_base_path: '/admin/',
+    images_upload_credentials: true,
+    automatic_uploads: true,
+    setup: function(editor) {
+        editor.on('init', function() {
+            editor.on('change', function() {
+                editor.save();
+            });
+        });
+    }
+});
+
+    // Function to initialize TinyMCE for dynamically added editors
+    function initTinyMCE(selector) {
+        tinymce.init({
+            selector: selector,
+            plugins: 'advlist autolink lists link image charmap preview anchor pagebreak',
+            toolbar_mode: 'floating',
+            toolbar: 'undo redo | styleselect | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | linkimage',
+            height: 300,
+            setup: function(editor) {
+                editor.on('init', function() {
+                    editor.on('change', function() {
+                        editor.save();
+                    });
+                });
+            }
+        });
+    }
+
+    // Modify the addSectionBtn event listener to initialize TinyMCE for new sections
+    addSectionBtn.addEventListener('click', function() {
+        sectionCounter++;
+        
+        // ... existing section creation code ...
+        
+        // After adding the new section, initialize TinyMCE for its content textarea
+        setTimeout(() => {
+            initTinyMCE(`#section-${sectionCounter}-content`);
+        }, 100);
+    });
+   // File input handling for module image
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('module-image');
+    const fileNameSpan = document.getElementById('file-name');
+    const imagePreview = document.getElementById('image-preview');
+    
+    if (fileInput && fileNameSpan && imagePreview) {
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            
+            if (file) {
+                // Update file name display
+                fileNameSpan.textContent = file.name;
+                
+                // Create a preview of the image
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    // Clear previous preview
+                    imagePreview.innerHTML = '';
+                    
+                    // Create new image element
+                    const img = document.createElement('img');
+                    img.src = event.target.result;
+                    img.alt = "Selected Image";
+                    img.className = "max-w-full h-32 object-cover rounded-md border";
+                    
+                    // Add to preview container
+                    imagePreview.appendChild(img);
+                    imagePreview.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                // No file chosen
+                fileNameSpan.textContent = 'No file chosen';
+                imagePreview.classList.add('hidden');
+                imagePreview.innerHTML = '';
+            }
+        });
+    }
+});
+</script>
+</body>
+</html>
