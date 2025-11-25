@@ -184,10 +184,28 @@ while ($row = $modules_result->fetch_assoc()) {
     
     // Add section if exists
     if ($row['section_id']) {
+        // Fix Railway image URLs for local development
+        $content = $row['section_content'];
+        
+        // Replace Railway production URLs with local paths
+        // This handles images stored with production URLs in the database
+        $content = str_replace(
+            'https://eyelearn-capstone.up.railway.app/capstone/modulephotoshow/',
+            '../modulephotoshow/',
+            $content
+        );
+        
+        // Also handle http variant if exists
+        $content = str_replace(
+            'http://eyelearn-capstone.up.railway.app/capstone/modulephotoshow/',
+            '../modulephotoshow/',
+            $content
+        );
+        
         $section = [
             'id' => $row['section_id'],
             'title' => $row['section_title'],
-            'content' => $row['section_content'],
+            'content' => $content,  // Use the URL-fixed content
             'has_quiz' => $row['has_quiz'],
             'part_id' => $current_part
         ];
@@ -2072,7 +2090,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div id="quiz-overview-card" class="text-center p-4 bg-green-50 border border-green-200 rounded-md shadow-sm mt-3">
                             <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-green-600">
                                 <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round, stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                 </svg>
                             </div>
                             <h3 class="text-lg font-bold text-green-900 mb-2">Quiz Already Completed</h3>
