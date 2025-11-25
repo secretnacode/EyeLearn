@@ -3496,10 +3496,28 @@ document.addEventListener('DOMContentLoaded', function() {
                     const bgColor = data.is_focused ? 'bg-green-100' : 'bg-red-100';
                     const textColor = data.is_focused ? 'text-green-700' : 'text-red-700';
                     
-                    currentStatusEl.className = `mt-3 p-2 ${bgColor} rounded text-center`;
-                    currentStatusEl.innerHTML = `<span class="text-xs font-medium ${textColor}">${status}</span>`;
+                    // Add gaze direction indicator
+                    let gazeIndicator = '';
+                    if (data.gaze_direction) {
+                        const gazeMap = {
+                            'centered': '👁️ Looking at screen',
+                            'looking_left': '👈 Looking left',
+                            'looking_right': '👉 Looking right',
+                            'looking_up': '👆 Looking up',
+                            'looking_down': '👇 Looking down',
+                            'face_turned': '🔄 Head turned away',
+                            'eyes_closed': '😴 Eyes closed',
+                            'no_face': '❌ No face detected',
+                            'distracted': '💭 Distracted',
+                            'error': '⚠️ Detection error'
+                        };
+                        gazeIndicator = `<br><span class="text-xs">${gazeMap[data.gaze_direction] || data.gaze_direction}</span>`;
+                    }
                     
-                    console.log('👁️ Focus status:', data.is_focused ? 'Focused' : 'Unfocused');
+                    currentStatusEl.className = `mt-3 p-2 ${bgColor} rounded text-center`;
+                    currentStatusEl.innerHTML = `<span class="text-xs font-medium ${textColor}">${status}${gazeIndicator}</span>`;
+                    
+                    console.log('👁️ Focus status:', data.is_focused ? 'Focused' : 'Unfocused', '- Gaze:', data.gaze_direction);
                 }
                 
                 // Update metrics

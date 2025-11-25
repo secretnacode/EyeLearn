@@ -94,8 +94,10 @@ class WebSocketEyeTrackingSession:
             # Process with MediaPipe
             results = self.face_mesh.process(rgb_frame)
             
-            # Determine if user is focused
-            is_focused_now = self.is_looking_at_screen(results)
+            # Get focus status and gaze direction
+            gaze_result = self.is_looking_at_screen(results)
+            is_focused_now = gaze_result['is_focused']
+            gaze_direction = gaze_result['gaze_direction']
             
             # Update focus state
             self.update_focus_state(is_focused_now)
@@ -111,6 +113,7 @@ class WebSocketEyeTrackingSession:
             
             return {
                 'is_focused': self.is_focused,
+                'gaze_direction': gaze_direction,
                 'metrics': metrics,
                 'timestamp': datetime.now().isoformat()
             }
@@ -144,10 +147,10 @@ class WebSocketEyeTrackingSession:
     def is_looking_at_screen(self, results):
         """
         Enhanced iris-based gaze detection
-        Determines if user is looking directly at screen using iris position
+        Returns: dict with 'is_focused' (bool) and 'gaze_direction' (str)
         """
         if not results or not results.multi_face_landmarks:
-            return False
+            return {'is_focused': False, 'gaze_direction': 'no_face'}
         
         try:
             landmarks = results.multi_face_landmarks[0].landmark
@@ -169,7 +172,7 @@ class WebSocketEyeTrackingSession:
             # === CALCULATE GAZE DIRECTION FOR LEFT EYE ===
             left_eye_width = abs(left_eye_outer.x - left_eye_inner.x)
             if left_eye_width < 0.01:  # Eye too small or closed
-                return False
+                return {'is_focused': False, 'gaze_direction': 'eyes_closed'}
             
             # Iris position relative to eye width (0 = outer, 1 = inner)
             left_iris_ratio = (left_iris_center.x - left_eye_outer.x) / left_eye_width
@@ -177,7 +180,7 @@ class WebSocketEyeTrackingSession:
             # === CALCULATE GAZE DIRECTION FOR RIGHT EYE ===
             right_eye_width = abs(right_eye_outer.x - right_eye_inner.x)
             if right_eye_width < 0.01:  # Eye too small or closed
-                return False
+                return {'is_focused': False, 'gaze_direction': 'eyes_closed'}
             
             # Iris position relative to eye width
             right_iris_ratio = (right_iris_center.x - right_eye_outer.x) / right_eye_width
@@ -194,7 +197,7 @@ class WebSocketEyeTrackingSession:
             right_eye_height = abs(right_eye_top.y - right_eye_bottom.y)
             
             if left_eye_height < 0.005 or right_eye_height < 0.005:  # Eyes closed
-                return False
+                return {'is_focused': False, 'gaze_direction': 'eyes_closed'}
             
             left_iris_vertical = (left_iris_center.y - left_eye_top.y) / left_eye_height
             right_iris_vertical = (right_iris_center.y - right_eye_top.y) / right_eye_height
@@ -210,12 +213,6 @@ class WebSocketEyeTrackingSession:
             face_symmetry_ratio = nose_offset / face_width if face_width > 0 else 1.0
             
             # === DETERMINE IF LOOKING AT SCREEN ===
-            # Focused criteria:
-            # 1. Iris horizontally centered (0.3 to 0.7 range)
-            # 2. Iris vertically centered (0.3 to 0.7 range)
-            # 3. Face is frontal (symmetry < 0.15)
-            # 4. Both eyes show similar gaze direction
-            
             horizontal_centered = (
                 0.3 < left_iris_ratio < 0.7 and
                 0.3 < right_iris_ratio < 0.7
@@ -227,8 +224,6 @@ class WebSocketEyeTrackingSession:
             )
             
             face_frontal = face_symmetry_ratio < 0.15
-            
-            # Check if both eyes looking in same direction (not cross-eyed)
             eyes_aligned = abs(left_iris_ratio - right_iris_ratio) < 0.3
             
             is_focused = (
@@ -238,30 +233,34 @@ class WebSocketEyeTrackingSession:
                 eyes_aligned
             )
             
-            # Optional: Log gaze direction for debugging (can be removed in production)
+            # === DETERMINE GAZE DIRECTION ===
+            gaze_direction = "centered"  # Default
+            
             if not is_focused:
-                gaze_info = ""
+                # Priority: Check horizontal first, then vertical, then head pose
                 if not horizontal_centered:
                     if left_iris_ratio < 0.3:
-                        gaze_info = "👈 Looking LEFT"
+                        gaze_direction = "looking_left"
                     elif left_iris_ratio > 0.7:
-                        gaze_info = "👉 Looking RIGHT"
+                        gaze_direction = "looking_right"
                 elif not vertical_centered:
                     if left_iris_vertical < 0.3:
-                        gaze_info = "👆 Looking UP"
+                        gaze_direction = "looking_up"
                     elif left_iris_vertical > 0.7:
-                        gaze_info = "👇 Looking DOWN"
+                        gaze_direction = "looking_down"
                 elif not face_frontal:
-                    gaze_info = "🔄 Face turned away"
-                
-                # Uncomment for debugging:
-                # logger.debug(f"Unfocused: {gaze_info}")
+                    gaze_direction = "face_turned"
+                else:
+                    gaze_direction = "distracted"
             
-            return is_focused
+            return {
+                'is_focused': is_focused,
+                'gaze_direction': gaze_direction
+            }
             
         except Exception as e:
             logger.error(f"❌ Error in iris-based gaze detection: {e}")
-            return False
+            return {'is_focused': False, 'gaze_direction': 'error'}
     
     def update_focus_state(self, is_focused_now):
         """Update focus tracking with smoothing"""
