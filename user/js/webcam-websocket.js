@@ -42,8 +42,9 @@ class WebcamWebSocket {
         const isProduction = window.location.hostname.includes('railway.app');
 
         if (isProduction) {
-            // Railway production
-            return `wss://${window.location.hostname}`;
+            // Railway production - Python WebSocket service
+            // TODO: Replace with your actual Railway Python service URL
+            return 'wss://eye-learn-python-production.up.railway.app';
         } else {
             // Local development
             return 'ws://127.0.0.1:5000';
