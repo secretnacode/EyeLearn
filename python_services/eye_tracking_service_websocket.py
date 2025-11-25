@@ -142,29 +142,125 @@ class WebSocketEyeTrackingSession:
             return None
     
     def is_looking_at_screen(self, results):
-        """Determine if user is looking at screen based on face landmarks"""
+        """
+        Enhanced iris-based gaze detection
+        Determines if user is looking directly at screen using iris position
+        """
         if not results or not results.multi_face_landmarks:
             return False
         
         try:
-            landmarks = results.multi_face_landmarks[0]
+            landmarks = results.multi_face_landmarks[0].landmark
             
-            # Get eye landmarks (simplified detection)
-            left_eye = landmarks.landmark[33]   # Left eye center
-            right_eye = landmarks.landmark[263]  # Right eye center
-            nose_tip = landmarks.landmark[1]     # Nose tip
+            # === IRIS LANDMARKS (MediaPipe Face Mesh with refine_landmarks=True) ===
+            # Left eye iris landmarks: 468-472 (center: 468)
+            # Right eye iris landmarks: 473-477 (center: 473)
             
-            # Calculate face orientation (basic check)
-            # If eyes are visible and nose is centered, user is likely focused
-            eye_distance = abs(left_eye.x - right_eye.x)
+            # Left eye landmarks
+            left_eye_outer = landmarks[33]   # Outer corner
+            left_eye_inner = landmarks[133]  # Inner corner
+            left_iris_center = landmarks[468] # Iris center
             
-            # Simple heuristic: if eyes are visible with reasonable distance
-            is_focused = eye_distance > 0.1 and eye_distance < 0.4
+            # Right eye landmarks
+            right_eye_outer = landmarks[362]  # Outer corner
+            right_eye_inner = landmarks[263]  # Inner corner
+            right_iris_center = landmarks[473] # Iris center
+            
+            # === CALCULATE GAZE DIRECTION FOR LEFT EYE ===
+            left_eye_width = abs(left_eye_outer.x - left_eye_inner.x)
+            if left_eye_width < 0.01:  # Eye too small or closed
+                return False
+            
+            # Iris position relative to eye width (0 = outer, 1 = inner)
+            left_iris_ratio = (left_iris_center.x - left_eye_outer.x) / left_eye_width
+            
+            # === CALCULATE GAZE DIRECTION FOR RIGHT EYE ===
+            right_eye_width = abs(right_eye_outer.x - right_eye_inner.x)
+            if right_eye_width < 0.01:  # Eye too small or closed
+                return False
+            
+            # Iris position relative to eye width
+            right_iris_ratio = (right_iris_center.x - right_eye_outer.x) / right_eye_width
+            
+            # === VERTICAL GAZE DETECTION ===
+            # Get upper and lower eyelids for both eyes
+            left_eye_top = landmarks[159]
+            left_eye_bottom = landmarks[145]
+            right_eye_top = landmarks[386]
+            right_eye_bottom = landmarks[374]
+            
+            # Calculate vertical position
+            left_eye_height = abs(left_eye_top.y - left_eye_bottom.y)
+            right_eye_height = abs(right_eye_top.y - right_eye_bottom.y)
+            
+            if left_eye_height < 0.005 or right_eye_height < 0.005:  # Eyes closed
+                return False
+            
+            left_iris_vertical = (left_iris_center.y - left_eye_top.y) / left_eye_height
+            right_iris_vertical = (right_iris_center.y - right_eye_top.y) / right_eye_height
+            
+            # === HEAD POSE DETECTION ===
+            nose_tip = landmarks[1]
+            left_eye_center = landmarks[33]
+            right_eye_center = landmarks[263]
+            
+            # Calculate face symmetry (should be centered for frontal view)
+            face_width = abs(left_eye_center.x - right_eye_center.x)
+            nose_offset = abs(nose_tip.x - (left_eye_center.x + right_eye_center.x) / 2)
+            face_symmetry_ratio = nose_offset / face_width if face_width > 0 else 1.0
+            
+            # === DETERMINE IF LOOKING AT SCREEN ===
+            # Focused criteria:
+            # 1. Iris horizontally centered (0.3 to 0.7 range)
+            # 2. Iris vertically centered (0.3 to 0.7 range)
+            # 3. Face is frontal (symmetry < 0.15)
+            # 4. Both eyes show similar gaze direction
+            
+            horizontal_centered = (
+                0.3 < left_iris_ratio < 0.7 and
+                0.3 < right_iris_ratio < 0.7
+            )
+            
+            vertical_centered = (
+                0.3 < left_iris_vertical < 0.7 and
+                0.3 < right_iris_vertical < 0.7
+            )
+            
+            face_frontal = face_symmetry_ratio < 0.15
+            
+            # Check if both eyes looking in same direction (not cross-eyed)
+            eyes_aligned = abs(left_iris_ratio - right_iris_ratio) < 0.3
+            
+            is_focused = (
+                horizontal_centered and
+                vertical_centered and
+                face_frontal and
+                eyes_aligned
+            )
+            
+            # Optional: Log gaze direction for debugging (can be removed in production)
+            if not is_focused:
+                gaze_info = ""
+                if not horizontal_centered:
+                    if left_iris_ratio < 0.3:
+                        gaze_info = "👈 Looking LEFT"
+                    elif left_iris_ratio > 0.7:
+                        gaze_info = "👉 Looking RIGHT"
+                elif not vertical_centered:
+                    if left_iris_vertical < 0.3:
+                        gaze_info = "👆 Looking UP"
+                    elif left_iris_vertical > 0.7:
+                        gaze_info = "👇 Looking DOWN"
+                elif not face_frontal:
+                    gaze_info = "🔄 Face turned away"
+                
+                # Uncomment for debugging:
+                # logger.debug(f"Unfocused: {gaze_info}")
             
             return is_focused
             
         except Exception as e:
-            logger.error(f"❌ Error in face detection: {e}")
+            logger.error(f"❌ Error in iris-based gaze detection: {e}")
             return False
     
     def update_focus_state(self, is_focused_now):
