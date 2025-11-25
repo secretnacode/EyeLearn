@@ -1,0 +1,8 @@
+[build]
+builder = "NIXPACKS"
+buildCommand = "cd python_services && pip install -r requirements.txt"
+
+[deploy]
+startCommand = "cd python_services && python eye_tracking_service_websocket.py"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

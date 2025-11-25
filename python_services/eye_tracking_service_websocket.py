@@ -11,7 +11,7 @@ import base64
 import numpy as np
 import logging
 from datetime import datetime
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 import requests

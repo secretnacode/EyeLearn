@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["python310", "gcc", "glib", "libGL"]
+
+[phases.install]
+cmds = ["cd python_services && pip install -r requirements.txt"]
+
+[phases.build]
+cmds = ["echo 'Build complete'"]
+
+[start]
+cmd = "cd python_services && python eye_tracking_service_websocket.py"
