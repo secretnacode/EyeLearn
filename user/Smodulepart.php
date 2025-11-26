@@ -2376,52 +2376,137 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <?php endif; ?> 
                     
                         <script>
-                           // Replace the Progress tracking functionality section
-                            document.addEventListener('DOMContentLoaded', () => {
-                                const nextBtn = document.getElementById('next-section-btn');
+                           // FIX #2: AJAX Navigation to prevent webcam restart
+                           // Load content via AJAX without page reload
+                           async function loadContent(url) {
+                               try {
+                                   console.log('🔄 Loading content via AJAX:', url);
+                                   
+                                   // Show loading indicator
+                                   const mainContent = document.getElementById('main-content');
+                                   if (mainContent) {
+                                       const originalContent = mainContent.innerHTML;
+                                       mainContent.innerHTML = `
+                                           <div class="flex items-center justify-center h-64">
+                                               <div class="text-center">
+                                                   <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+                                                   <p class="text-gray-600">Loading content...</p>
+                                               </div>
+                                           </div>
+                                       `;
+                                   }
 
-                                if (!nextBtn) return;
+                                   // Fetch the new page content
+                                   const response = await fetch(url);
+                                   
+                                   if (!response.ok) {
+                                       throw new Error(`HTTP error! status: ${response.status}`);
+                                   }
 
-                                nextBtn.addEventListener('click', function(e) {
-                                    e.preventDefault();
-                                    console.log("Button clicked!");
+                                   const html = await response.text();
+                                   
+                                   // Create a temporary container to parse the HTML
+                                   const tempDiv = document.createElement('div');
+                                   tempDiv.innerHTML = html;
+                                   
+                                   // Extract only the main-content area (preserve webcam container)
+                                   const newMainContent = tempDiv.querySelector('#main-content');
+                                   
+                                   if (newMainContent && mainContent) {
+                                       // Replace only the main content, keep webcam container untouched
+                                       mainContent.innerHTML = newMainContent.innerHTML;
+                                       
+                                       // Update URL without page reload
+                                       window.history.pushState({}, '', url);
+                                       
+                                       // Re-initialize any scripts that need to run
+                                       initializePageScripts();
+                                       
+                                       console.log('✅ Content loaded successfully');
+                                   } else {
+                                       throw new Error('Could not find main content area');
+                                   }
 
-                                    const sectionId = this.dataset.sectionId;
-                                    const nextUrl = this.dataset.nextUrl;
-                                    // const finalQuizUrl = this.dataset.finalQuizUrl;
-                                    let isCompleted = this.dataset.completed === '1';
+                               } catch (error) {
+                                   console.error('❌ Error loading content:', error);
+                                   // Fallback to full page reload if AJAX fails
+                                   window.location.href = url;
+                               }
+                           }
 
-                                    if (!sectionId || isCompleted) {
-                                        // Already completed → just navigate
-                                        window.location.href = nextUrl;
-                                        return;
-                                    }
+                           // Initialize scripts after AJAX content load
+                           function initializePageScripts() {
+                               // Re-attach event listeners for the Next button
+                               const nextBtn = document.getElementById('next-section-btn');
+                               if (nextBtn) {
+                                   // Remove old listeners and attach new one
+                                   const newNextBtn = nextBtn.cloneNode(true);
+                                   nextBtn.parentNode.replaceChild(newNextBtn, nextBtn);
+                                   attachNextButtonHandler(newNextBtn);
+                               }
+                               
+                               // Re-initialize any other page-specific scripts here
+                               console.log('✅ Page scripts re-initialized');
+                           }
 
-                                    // Disable button while processing
-                                    this.disabled = true;
-                                    this.style.opacity = '0.5';
+                           // Attach Next button handler
+                           function attachNextButtonHandler(btn) {
+                               if (!btn) return;
 
-                                    // Send completion to server
-                                    fetch(window.location.href, {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                                        body: `section_completed=1&section_id=${sectionId}`
-                                    })
-                                    .then(res => res.json())
-                                    .then(data => {
-                                        // After marking complete, navigate to next section or final quiz
-                                        window.location.href = nextUrl; 
-                                    })
-                                .catch(err => {
-                                    console.error('Error completing section:', err);
-                                    setTimeout(() => {
-                                        location.reload();
-                                    }, 2000);
-                                    // Still navigate even if request fails
-                                    window.location.href = nextUrl;
-                                });
-                            });
-                        });
+                               btn.addEventListener('click', function(e) {
+                                   e.preventDefault();
+                                   console.log("Button clicked!");
+
+                                   const sectionId = this.dataset.sectionId;
+                                   const nextUrl = this.dataset.nextUrl;
+                                   let isCompleted = this.dataset.completed === '1';
+
+                                   if (!nextUrl) {
+                                       console.warn('No next URL provided');
+                                       return;
+                                   }
+
+                                   // Disable button while processing
+                                   this.disabled = true;
+                                   this.style.opacity = '0.5';
+
+                                   // If already completed, just navigate
+                                   if (!sectionId || isCompleted) {
+                                       // FIX #2: Use AJAX navigation instead of page reload
+                                       loadContent(nextUrl);
+                                       return;
+                                   }
+
+                                   // Send completion to server first
+                                   fetch(window.location.href, {
+                                       method: 'POST',
+                                       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                       body: `section_completed=1&section_id=${sectionId}`
+                                   })
+                                   .then(res => res.json())
+                                   .then(data => {
+                                       // FIX #2: After marking complete, use AJAX to load next section
+                                       loadContent(nextUrl);
+                                   })
+                                   .catch(err => {
+                                       console.error('Error completing section:', err);
+                                       // Still navigate even if request fails
+                                       loadContent(nextUrl);
+                                   });
+                               });
+                           }
+
+                           // Initialize on page load
+                           document.addEventListener('DOMContentLoaded', () => {
+                               const nextBtn = document.getElementById('next-section-btn');
+                               attachNextButtonHandler(nextBtn);
+                           });
+
+                           // Handle browser back/forward buttons
+                           window.addEventListener('popstate', (event) => {
+                               // Reload content when user uses browser navigation
+                               loadContent(window.location.href);
+                           });
                         </script>
                 </div>
             </div>
