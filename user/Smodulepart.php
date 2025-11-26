@@ -3295,7 +3295,7 @@ if (finalQuizFormEl && finalQuizResultsEl) {
                 body: JSON.stringify({
                     action: 'submit_final_quiz',
                     score: score, // This is now the actual score (number of correct answers)
-                    quiz_id: <?php echo $selected_quiz_id; ?>,
+                    quiz_id: <?php echo (int)($selected_quiz_id ?? 0); ?>,
                     module_title: <?php echo json_encode($final_quiz['title'] ?? ''); ?>,
                     retake_id: activeRetakeId
                     // module_title: < ?php echo json_encode($final_quiz['title'] ?? ''); ?>
