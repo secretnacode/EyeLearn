@@ -1163,8 +1163,10 @@ try {
             const modulesTime = [...new Set(timeData.map(item => item.module_name))];
 
             // Now use total times (aggregated from total_time_by_gender)
-            const maleTotal = totalTimeData.find(item => item.gender === 'Male')?.total_time_minutes || 0;
-            const femaleTotal = totalTimeData.find(item => item.gender === 'Female')?.total_time_minutes || 0;
+            const maleItem = totalTimeData.find(item => item.gender === 'Male');
+            const maleTotal = maleItem ? maleItem.total_time_minutes || 0 : 0;
+            const femaleItem = totalTimeData.find(item => item.gender === 'Female');
+            const femaleTotal = femaleItem ? femaleItem.total_time_minutes || 0 : 0;
 
             // Chart will now display total time (not average)
             timeToCompleteChart = new Chart(timeCtx, {
@@ -1174,12 +1176,18 @@ try {
                     datasets: [
                         {
                             label: 'Male',
-                            data: modulesTime.map(module => timeData.find(d => d.module_name === module && d.gender === 'Male')?.avg_completion_time_minutes || 0),
+                            data: modulesTime.map(module => {
+                                const item = timeData.find(d => d.module_name === module && d.gender === 'Male');
+                                return item ? (item.avg_completion_time_minutes || 0) : 0;
+                            }),
                             backgroundColor: '#3B82F6'
                         },
                         {
                             label: 'Female',
-                            data: modulesTime.map(module => timeData.find(d => d.module_name === module && d.gender === 'Female')?.avg_completion_time_minutes || 0),
+                            data: modulesTime.map(module => {
+                                const item = timeData.find(d => d.module_name === module && d.gender === 'Female');
+                                return item ? (item.avg_completion_time_minutes || 0) : 0;
+                            }),
                             backgroundColor: '#EC4899'
                         }
                     ]
@@ -1312,8 +1320,10 @@ try {
 
         // Update focus time summary with real data
         const focusTimeData = dashboardData.focus_time_by_gender || [];
-        const maleAvgTime = focusTimeData.find(item => item.gender === 'Male')?.avg_focus_time_minutes || 18.2;
-        const femaleAvgTime = focusTimeData.find(item => item.gender === 'Female')?.avg_focus_time_minutes || 22.6;
+        const maleItem = focusTimeData.find(item => item.gender === 'Male');
+        const maleAvgTime = maleItem ? (maleItem.avg_focus_time_minutes || 18.2) : 18.2;
+        const femaleItem = focusTimeData.find(item => item.gender === 'Female');
+        const femaleAvgTime = femaleItem ? (femaleItem.avg_focus_time_minutes || 22.6) : 22.6;
         
         // Update the focus time display in the DOM with specific IDs
         const maleFocusElement = document.getElementById('male-focus-time');
@@ -1933,7 +1943,7 @@ try {
                                         return context[0].label;
                                     }
                                     const originalQuestion = checkpointData[context[0].dataIndex];
-                                    return originalQuestion?.question_text || context[0].label;
+                                    return originalQuestion ? (originalQuestion.question_text || context[0].label) : context[0].label;
                                 },
                                 label: function(context) {
                                     const label = context.dataset.label || '';
