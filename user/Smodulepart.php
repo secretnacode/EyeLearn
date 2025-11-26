@@ -1787,7 +1787,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             sectionsContainer.style.overflow = '';
                             sectionsContainer.style.transition = '';
                         }, 200);
-                        chevron?.classList.add('rotated');
+                        if (chevron) {
+                            chevron.classList.add('rotated');
+                        }
                         header.setAttribute('aria-expanded', 'true');
                     } else {
                         const currentHeight = sectionsContainer.scrollHeight + 'px';
@@ -1803,7 +1805,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             sectionsContainer.style.overflow = '';
                             sectionsContainer.style.transition = '';
                         }, 200);
-                        chevron?.classList.remove('rotated');
+                        if (chevron) {
+                            chevron.classList.remove('rotated');
+                        }
                         header.setAttribute('aria-expanded', 'false');
                     }
                 }
