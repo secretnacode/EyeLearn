@@ -173,14 +173,20 @@ class ClientSideEyeTracking {
         if (!container) {
             container = document.createElement('div');
             container.id = 'eye-tracking-container';
-            container.className = 'fixed top-4 right-4 z-50 bg-white rounded-lg shadow-xl p-4 w-64';
+            container.className = 'fixed top-16 right-4 z-40 bg-black rounded-lg shadow-xl border border-gray-700 p-4 w-80';
             document.body.appendChild(container);
         }
 
         container.innerHTML = `
-            <div class="mb-3">
-                <h3 class="text-sm font-semibold text-gray-800 mb-2">Eye Tracking</h3>
-                <div class="relative w-full h-48 bg-gray-100 rounded overflow-hidden">
+            <h3 class="text-sm font-semibold text-white mb-3 flex items-center justify-between cursor-move">
+                <span>Eye Tracking</span>
+                <span id="eye-tracking-status-indicator" class="flex items-center gap-2">
+                    <span class="relative flex h-3 w-3 bg-gray-500 rounded-full"></span>
+                    <span class="text-xs text-gray-300 font-medium">Initializing...</span>
+                </span>
+            </h3>
+            <div class="space-y-3">
+                <div class="relative w-full h-48 bg-gray-900 rounded overflow-hidden">
                     <video id="eye-tracking-video" 
                            autoplay 
                            playsinline 
@@ -189,23 +195,31 @@ class ClientSideEyeTracking {
                     <canvas id="eye-tracking-canvas" 
                             class="absolute top-0 left-0 w-full h-full pointer-events-none"></canvas>
                 </div>
-            </div>
-            <div class="space-y-2 text-xs">
-                <div class="flex justify-between">
-                    <span class="text-gray-600">Status:</span>
-                    <span id="eye-tracking-status" class="font-medium text-gray-800">Initializing...</span>
+                <div class="space-y-2 text-xs">
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-300">Focused:</span>
+                        <span id="eye-tracking-focused" class="font-medium text-green-400">0s</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-300">Unfocused:</span>
+                        <span id="eye-tracking-unfocused" class="font-medium text-red-400">0s</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-300">Total:</span>
+                        <span id="eye-tracking-total" class="font-medium text-blue-400">0s</span>
+                    </div>
                 </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-600">Focused:</span>
-                    <span id="eye-tracking-focused" class="font-medium text-green-600">0s</span>
+                <div class="mt-2">
+                    <div class="flex justify-between items-center mb-1 text-xs">
+                        <span class="text-gray-300">Focus:</span>
+                        <span id="eye-tracking-focus-percentage" class="font-medium text-white">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-700 rounded-full h-2">
+                        <div id="eye-tracking-focus-progress-bar" class="bg-gray-500 h-2 rounded-full transition-all duration-300" style="width: 0%;"></div>
+                    </div>
                 </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-600">Unfocused:</span>
-                    <span id="eye-tracking-unfocused" class="font-medium text-red-600">0s</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-600">Total:</span>
-                    <span id="eye-tracking-total" class="font-medium text-blue-600">0s</span>
+                <div id="eye-tracking-current-status" class="mt-3 p-2 bg-gray-900 rounded text-center">
+                    <span class="text-xs font-medium text-gray-200">Initializing...</span>
                 </div>
             </div>
         `;
@@ -636,28 +650,75 @@ class ClientSideEyeTracking {
     }
 
     updateUI() {
-        const statusEl = document.getElementById('eye-tracking-status');
+        const statusIndicator = document.getElementById('eye-tracking-status-indicator');
+        const currentStatusEl = document.getElementById('eye-tracking-current-status');
         const focusedEl = document.getElementById('eye-tracking-focused');
         const unfocusedEl = document.getElementById('eye-tracking-unfocused');
         const totalEl = document.getElementById('eye-tracking-total');
+        const focusPercentageEl = document.getElementById('eye-tracking-focus-percentage');
+        const focusProgressBar = document.getElementById('eye-tracking-focus-progress-bar');
 
-        if (statusEl) {
-            statusEl.textContent = this.isFocused ? 'Focused' : 'Unfocused';
-            statusEl.className = this.isFocused ? 'font-medium text-green-600' : 'font-medium text-red-600';
+        // Update status indicator
+        if (statusIndicator) {
+            if (this.isTracking) {
+                statusIndicator.innerHTML = `
+                    <span class="relative flex h-3 w-3">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                    </span>
+                    <span class="text-xs text-green-400 font-medium">Active</span>
+                `;
+            } else {
+                statusIndicator.innerHTML = `
+                    <span class="relative flex h-3 w-3 bg-gray-500 rounded-full"></span>
+                    <span class="text-xs text-gray-300 font-medium">Inactive</span>
+                `;
+            }
         }
 
+        // Update current status
+        if (currentStatusEl) {
+            const status = this.isFocused ? '✅ Currently Focused' : '⚠️ Currently Unfocused';
+            currentStatusEl.innerHTML = `<span class="text-xs font-medium ${this.isFocused ? 'text-green-400' : 'text-red-400'}">${status}</span>`;
+        }
+
+        // Update times
         if (focusedEl) {
-            focusedEl.textContent = Math.round(this.focusedTime) + 's';
+            focusedEl.textContent = this.formatTime(this.focusedTime);
         }
 
         if (unfocusedEl) {
-            unfocusedEl.textContent = Math.round(this.unfocusedTime) + 's';
+            unfocusedEl.textContent = this.formatTime(this.unfocusedTime);
         }
 
         if (totalEl) {
             const total = this.focusedTime + this.unfocusedTime;
-            totalEl.textContent = Math.round(total) + 's';
+            totalEl.textContent = this.formatTime(total);
         }
+
+        // Update focus percentage
+        if (focusPercentageEl && focusProgressBar) {
+            const total = this.focusedTime + this.unfocusedTime;
+            const percentage = total > 0 ? Math.round((this.focusedTime / total) * 100) : 0;
+            focusPercentageEl.textContent = percentage + '%';
+            focusProgressBar.style.width = percentage + '%';
+            
+            // Change color based on percentage
+            if (percentage >= 70) {
+                focusProgressBar.className = 'bg-green-600 h-2 rounded-full transition-all duration-300';
+            } else if (percentage >= 40) {
+                focusProgressBar.className = 'bg-yellow-600 h-2 rounded-full transition-all duration-300';
+            } else {
+                focusProgressBar.className = 'bg-red-600 h-2 rounded-full transition-all duration-300';
+            }
+        }
+    }
+
+    formatTime(seconds) {
+        if (seconds < 60) return Math.round(seconds) + 's';
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.round(seconds % 60);
+        return `${mins}m ${secs}s`;
     }
 
     // FIX #3: Save tracking data with proper headers and JSON

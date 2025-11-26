@@ -1742,41 +1742,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php include 'includes/eye-tracking-init.php'; ?>
 </head>
 <body class="bg-gray-50">
-    <!-- WebSocket Eye Tracking Widget -->
-    <div id="eye-tracking-widget" class="fixed top-16 left-0 z-40 bg-black border-b border-gray-700 px-3 py-1.5" style="display: block;">
-        <div class="flex items-center gap-4 text-xs">
-            <div class="flex items-center gap-2">
-                <span class="text-gray-400 font-medium">Eye Tracking</span>
-                <span id="tracking-status-indicator" class="flex items-center gap-1.5">
-                    <span class="relative flex h-2 w-2 bg-gray-500 rounded-full"></span>
-                    <span class="text-gray-300">Initializing...</span>
-                </span>
-            </div>
-            <div class="flex items-center gap-1">
-                <span class="text-gray-400">Focused:</span>
-                <span id="focused-time" class="font-medium text-green-400">0s</span>
-            </div>
-            <div class="flex items-center gap-1">
-                <span class="text-gray-400">Unfocused:</span>
-                <span id="unfocused-time" class="font-medium text-red-400">0s</span>
-            </div>
-            <div class="flex items-center gap-1">
-                <span class="text-gray-400">Total:</span>
-                <span id="session-time" class="font-medium text-blue-400">0s</span>
-            </div>
-            <div class="flex items-center gap-1.5">
-                <span class="text-gray-400">Focus:</span>
-                <span id="focus-percentage" class="font-medium text-white">0%</span>
-                <div class="w-16 bg-gray-700 rounded-full h-1.5">
-                    <div id="focus-progress-bar" class="bg-gray-500 h-1.5 rounded-full transition-all duration-300" style="width: 0%;"></div>
-                </div>
-            </div>
-            <div id="current-focus-status" class="text-gray-300 text-xs">
-                <span>Initializing...</span>
-            </div>
-        </div>
-    </div>
-    
     <!-- Top Navigation Bar -->
     <nav class="fixed top-0 left-0 right-0 h-16 bg-white shadow-md z-30 flex items-center justify-between px-4">
         <!-- Left side - Menu toggle and title -->
@@ -1974,12 +1939,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </nav>
     
-    <div class="flex min-h-screen pt-24">
+    <div class="flex min-h-screen" style="padding-top: calc(4rem + 22rem);">
         <!-- Mobile backdrop -->
         <div id="backdrop" class="backdrop"></div>
         
         <!-- Module Sidebar -->
-        <div id="sidebar" class="sidebar fixed left-0 top-24 h-full shadow-lg z-40 flex flex-col transition-all duration-300 ease-in-out">
+        <div id="sidebar" class="sidebar fixed left-0 top-16 h-full shadow-lg z-40 flex flex-col transition-all duration-300 ease-in-out">
             <div class="p-3 border-b border-gray-200">
                 <h2 class="text-lg font-bold text-gray-900 mb-2"><?php echo !empty($modules) ? htmlspecialchars(reset($modules)['title']) : 'Learning Content'; ?></h2>
                 <div class="flex items-center justify-between mt-2">
