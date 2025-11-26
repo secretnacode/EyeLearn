@@ -292,7 +292,7 @@ class ClientSideEyeTracking {
 
             if (predictions.length > 0) {
                 const keypoints = predictions[0].scaledMesh;
-                
+
                 // Draw face mesh (optional, for debugging)
                 this.drawFaceMesh(keypoints);
 
@@ -332,31 +332,263 @@ class ClientSideEyeTracking {
         }
     }
 
-    determineFocus(keypoints) {
-        // Simple focus detection based on eye landmarks
-        // Left eye: indices 33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246
-        // Right eye: indices 362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398
+    // === GEOMETRY HELPERS ===
+    distance2D(a, b) {
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
 
+    // Compute Eye Aspect Ratio (EAR) for one eye, given landmark indices
+    computeEyeEAR(keypoints, idxOuter, idxInner, idxTop1, idxTop2, idxBottom1, idxBottom2) {
+        const p1 = keypoints[idxOuter];
+        const p4 = keypoints[idxInner];
+        const p2 = keypoints[idxTop1];
+        const p3 = keypoints[idxTop2];
+        const p5 = keypoints[idxBottom1];
+        const p6 = keypoints[idxBottom2];
+
+        if (!p1 || !p2 || !p3 || !p4 || !p5 || !p6) {
+            return null;
+        }
+
+        const vertical1 = this.distance2D(p2, p6);
+        const vertical2 = this.distance2D(p3, p5);
+        const horizontal = this.distance2D(p1, p4);
+
+        if (horizontal === 0) return null;
+
+        return (vertical1 + vertical2) / (2.0 * horizontal);
+    }
+
+    computeAverageEAR(keypoints) {
+        // Left eye indices (approximate MediaPipe FaceMesh)
+        // Outer: 33, Inner: 133, Upper: 159/158, Lower: 145/153
+        const leftEAR = this.computeEyeEAR(
+            keypoints,
+            33, 133,
+            159, 158,
+            145, 153
+        );
+
+        // Right eye indices
+        // Outer: 362, Inner: 263, Upper: 386/387, Lower: 374/373
+        const rightEAR = this.computeEyeEAR(
+            keypoints,
+            362, 263,
+            386, 387,
+            374, 373
+        );
+
+        if (leftEAR == null || rightEAR == null) {
+            return null;
+        }
+
+        return (leftEAR + rightEAR) / 2.0;
+    }
+
+    // Update drowsiness state using EAR with simple hysteresis
+    updateDrowsinessState(ear) {
+        // Lazy-init state on first call
+        if (this._drowsinessState == null) {
+            this._drowsinessState = {
+                closedMs: 0,
+                lastTimestamp: Date.now(),
+                eyeClosed: false
+            };
+        }
+
+        const state = this._drowsinessState;
+        const now = Date.now();
+        const dtMs = Math.min(now - (state.lastTimestamp || now), 500); // clamp to avoid spikes
+        state.lastTimestamp = now;
+
+        // Thresholds tuned conservatively; can be adjusted per environment
+        const EAR_CLOSED = 0.18;
+        const EAR_OPEN = 0.21;
+        const DROWSY_MS = 1000; // > 1s continuous closure => drowsy
+
+        if (ear == null) {
+            // If we can't compute EAR, don't change drowsiness aggressively
+            return true;
+        }
+
+        let eyeClosed = state.eyeClosed;
+        if (ear < EAR_CLOSED) {
+            eyeClosed = true;
+        } else if (ear > EAR_OPEN) {
+            eyeClosed = false;
+        }
+        state.eyeClosed = eyeClosed;
+
+        if (eyeClosed) {
+            state.closedMs += dtMs;
+        } else {
+            state.closedMs = 0;
+        }
+
+        const isDrowsy = state.closedMs >= DROWSY_MS;
+        return !isDrowsy;
+    }
+
+    // Head pose proxy using face symmetry (nose vs eye centers) for yaw + pitch
+    computeHeadFrontalMetric(keypoints) {
+        const noseTip = keypoints[1];
+        const leftEyeCenter = keypoints[33];
+        const rightEyeCenter = keypoints[263];
+
+        if (!noseTip || !leftEyeCenter || !rightEyeCenter) {
+            return {
+                horizontalRatio: 1.0,
+                verticalRatio: 1.0
+            }; // assume not frontal if we can't measure
+        }
+
+        const faceWidth = Math.abs(leftEyeCenter.x - rightEyeCenter.x);
+        const eyeMidY = (leftEyeCenter.y + rightEyeCenter.y) / 2.0;
+        const faceHeight = Math.abs(noseTip.y - eyeMidY);
+
+        let horizontalRatio = 1.0;
+        let verticalRatio = 1.0;
+
+        if (faceWidth > 0) {
+            const midX = (leftEyeCenter.x + rightEyeCenter.x) / 2.0;
+            const noseOffsetX = Math.abs(noseTip.x - midX);
+            horizontalRatio = noseOffsetX / faceWidth; // yaw proxy
+        }
+
+        if (faceHeight > 0 && faceWidth > 0) {
+            // Normalize vertical offset by eye distance to get a rough pitch proxy
+            const expectedNoseOffsetY = faceWidth * 0.1; // conservative expectation
+            const actualOffsetY = Math.abs(noseTip.y - (eyeMidY + expectedNoseOffsetY));
+            verticalRatio = actualOffsetY / faceWidth; // pitch proxy
+        }
+
+        return {
+            horizontalRatio,
+            verticalRatio
+        };
+    }
+
+    // Iris / gaze metrics: checks if iris is near the center of each eye
+    computeIrisMetrics(keypoints) {
+        // Eye corners
+        const leftOuter = keypoints[33];
+        const leftInner = keypoints[133];
+        const rightOuter = keypoints[362];
+        const rightInner = keypoints[263];
+
+        if (!leftOuter || !leftInner || !rightOuter || !rightInner) {
+            return {
+                horizontalCentered: true,
+                verticalCentered: true,
+                eyesAligned: true
+            };
+        }
+
+        const leftWidth = Math.abs(leftOuter.x - leftInner.x);
+        const rightWidth = Math.abs(rightOuter.x - rightInner.x);
+
+        if (leftWidth < 0.01 || rightWidth < 0.01) {
+            // Eyes too small/closed to trust gaze; treat as not centered
+            return {
+                horizontalCentered: false,
+                verticalCentered: true,
+                eyesAligned: true
+            };
+        }
+
+        // Prefer true iris landmarks if available (MediaPipe refine_landmarks-style)
+        let leftIrisCenter = null;
+        let rightIrisCenter = null;
+        if (keypoints.length > 473) {
+            leftIrisCenter = keypoints[468];
+            rightIrisCenter = keypoints[473];
+        }
+
+        // Fallback: approximate iris center using central eyelid point if iris not present
+        if (!leftIrisCenter) {
+            leftIrisCenter = keypoints[159] || {
+                x: (leftOuter.x + leftInner.x) / 2,
+                y: (leftOuter.y + leftInner.y) / 2
+            };
+        }
+        if (!rightIrisCenter) {
+            rightIrisCenter = keypoints[386] || {
+                x: (rightOuter.x + rightInner.x) / 2,
+                y: (rightOuter.y + rightInner.y) / 2
+            };
+        }
+
+        const leftIrisRatio = (leftIrisCenter.x - leftOuter.x) / leftWidth;
+        const rightIrisRatio = (rightIrisCenter.x - rightOuter.x) / rightWidth;
+
+        // Vertical metrics if we have eyelid landmarks
+        const leftTop = keypoints[159];
+        const leftBottom = keypoints[145];
+        const rightTop = keypoints[386];
+        const rightBottom = keypoints[374];
+
+        let leftIrisVertical = 0.5;
+        let rightIrisVertical = 0.5;
+
+        if (leftTop && leftBottom && rightTop && rightBottom) {
+            const leftHeight = Math.abs(leftTop.y - leftBottom.y);
+            const rightHeight = Math.abs(rightTop.y - rightBottom.y);
+
+            if (leftHeight > 0.005 && rightHeight > 0.005) {
+                leftIrisVertical = (leftIrisCenter.y - leftTop.y) / leftHeight;
+                rightIrisVertical = (rightIrisCenter.y - rightTop.y) / rightHeight;
+            }
+        }
+
+        const horizontalCentered =
+            leftIrisRatio > 0.3 && leftIrisRatio < 0.7 &&
+            rightIrisRatio > 0.3 && rightIrisRatio < 0.7;
+
+        const verticalCentered =
+            leftIrisVertical > 0.3 && leftIrisVertical < 0.7 &&
+            rightIrisVertical > 0.3 && rightIrisVertical < 0.7;
+
+        const eyesAligned = Math.abs(leftIrisRatio - rightIrisRatio) < 0.3;
+
+        return {
+            horizontalCentered,
+            verticalCentered,
+            eyesAligned
+        };
+    }
+
+    // Core focus computation helper: returns boolean based on advanced metrics
+    computeIsFocused(keypoints) {
         if (keypoints.length < 468) {
             return false; // Not enough landmarks
         }
 
-        // Get eye center points
-        const leftEyeCenter = keypoints[33];
-        const rightEyeCenter = keypoints[362];
+        // 1) Head pose estimation (yaw/pitch proxy via symmetry)
+        const headPose = this.computeHeadFrontalMetric(keypoints);
+        const isFaceFrontal =
+            headPose.horizontalRatio < 0.15 &&   // too far left/right => unfocused
+            headPose.verticalRatio < 0.20;       // too far up/down   => unfocused
 
-        // Get eye corners
-        const leftEyeLeft = keypoints[33];
-        const leftEyeRight = keypoints[133];
-        const rightEyeLeft = keypoints[362];
-        const rightEyeRight = keypoints[263];
+        // 2) Eye Aspect Ratio (EAR) for drowsiness / eye closure
+        const earAvg = this.computeAverageEAR(keypoints);
+        const isAwake = this.updateDrowsinessState(earAvg);
 
-        // Calculate if eyes are looking forward (simplified)
-        const leftEyeWidth = Math.abs(leftEyeRight.x - leftEyeLeft.x);
-        const rightEyeWidth = Math.abs(rightEyeRight.x - rightEyeLeft.x);
+        // 3) Iris / gaze: are eyes looking roughly toward the screen?
+        const irisMetrics = this.computeIrisMetrics(keypoints);
+        const isLookingAtScreen =
+            irisMetrics.horizontalCentered &&
+            irisMetrics.verticalCentered &&
+            irisMetrics.eyesAligned;
 
-        // If eyes are wide open and centered, consider focused
-        return leftEyeWidth > 0.02 && rightEyeWidth > 0.02;
+        // Final combined attention decision
+        return (isFaceFrontal && isAwake && isLookingAtScreen);
+    }
+
+    determineFocus(keypoints) {
+        // Backwards-compatible wrapper around the new advanced logic
+        return this.computeIsFocused(keypoints);
     }
 
     drawFaceMesh(keypoints) {
