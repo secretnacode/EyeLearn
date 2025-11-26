@@ -283,40 +283,80 @@ class ClientSideEyeTracking {
         const leftIris = keypoints[468]; // Left iris center
         const rightIris = keypoints[473]; // Right iris center
 
-        if (!leftIris || !rightIris) return false;
+        if (!leftIris || !rightIris) {
+            console.log('❌ No iris detected');
+            return false;
+        }
 
         // Get face bounds to check distance/size
         const nose = keypoints[1]; // Nose tip
         const leftEye = keypoints[33]; // Left eye outer corner
         const rightEye = keypoints[263]; // Right eye outer corner
+        const leftCheek = keypoints[123]; // Left cheek
+        const rightCheek = keypoints[352]; // Right cheek
 
         // Calculate face width (distance between eyes)
         const faceWidth = Math.abs(rightEye[0] - leftEye[0]);
 
+        console.log('👤 Face width:', faceWidth);
+
         // Face too small = too far away = unfocused
-        if (faceWidth < 80) return false;
+        if (faceWidth < 100) {
+            console.log('❌ Too far from camera (face width < 100)');
+            return false;
+        }
 
         // Calculate average iris position
-        const avgX = (leftIris[0] + rightIris[0]) / 2;
-        const avgY = (leftIris[1] + rightIris[1]) / 2;
+        const avgIrisX = (leftIris[0] + rightIris[0]) / 2;
+        const avgIrisY = (leftIris[1] + rightIris[1]) / 2;
 
-        // Normalize to video dimensions
-        const normalizedX = avgX / this.videoElement.videoWidth;
-        const normalizedY = avgY / this.videoElement.videoHeight;
+        // Get nose position for reference
+        const noseX = nose[0];
+        const noseY = nose[1];
 
-        // STRICTER tolerance: Check if looking at center (±15% instead of ±20%)
-        const isXCentered = Math.abs(normalizedX - 0.5) < 0.15;
-        const isYCentered = Math.abs(normalizedY - 0.5) < 0.15;
+        // Normalize iris position to video dimensions
+        const normalizedIrisX = avgIrisX / this.videoElement.videoWidth;
+        const normalizedIrisY = avgIrisY / this.videoElement.videoHeight;
 
-        // Calculate gaze deviation from center
-        const xDeviation = Math.abs(normalizedX - 0.5);
-        const yDeviation = Math.abs(normalizedY - 0.5);
+        // Normalize nose position
+        const normalizedNoseX = noseX / this.videoElement.videoWidth;
+        const normalizedNoseY = noseY / this.videoElement.videoHeight;
 
-        // Must be looking fairly directly at camera
-        // If looking too far left/right/up/down, not focused
-        const isCenterGaze = (xDeviation < 0.12 && yDeviation < 0.12);
+        console.log('👁️ Iris position:', {
+            x: normalizedIrisX.toFixed(3),
+            y: normalizedIrisY.toFixed(3)
+        });
+        console.log('👃 Nose position:', {
+            x: normalizedNoseX.toFixed(3),
+            y: normalizedNoseY.toFixed(3)
+        });
 
-        return isXCentered && isYCentered && isCenterGaze;
+        // Calculate deviation from center (0.5, 0.5)
+        const irisXDeviation = Math.abs(normalizedIrisX - 0.5);
+        const irisYDeviation = Math.abs(normalizedIrisY - 0.5);
+        const noseXDeviation = Math.abs(normalizedNoseX - 0.5);
+        const noseYDeviation = Math.abs(normalizedNoseY - 0.5);
+
+        console.log('📏 Deviations:', {
+            irisX: irisXDeviation.toFixed(3),
+            irisY: irisYDeviation.toFixed(3),
+            noseX: noseXDeviation.toFixed(3),
+            noseY: noseYDeviation.toFixed(3)
+        });
+
+        // VERY STRICT: Both nose AND eyes must be centered
+        const noseIsCentered = noseXDeviation < 0.1 && noseYDeviation < 0.1;
+        const irisIsCentered = irisXDeviation < 0.1 && irisYDeviation < 0.1;
+
+        console.log('✓ Checks:', {
+            noseCentered: noseIsCentered,
+            irisCentered: irisIsCentered
+        });
+
+        const isFocused = noseIsCentered && irisIsCentered;
+        console.log(isFocused ? '✅ FOCUSED' : '❌ UNFOCUSED');
+
+        return isFocused;
     }
 
     updateFocusState(isFocused) {
