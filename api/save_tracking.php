@@ -45,9 +45,16 @@ try {
 }
 
 try {
-    // Get JSON input
+    // Get JSON input (handles both regular POST and sendBeacon Blob)
     $json = file_get_contents('php://input');
     $data = json_decode($json, true);
+    
+    // If json_decode failed, try to handle Blob from sendBeacon
+    if (!$data && !empty($json)) {
+        // sendBeacon sends as Blob, but PHP receives it as raw data
+        // Try to decode again or handle as string
+        $data = json_decode($json, true);
+    }
     
     if (!$data) {
         throw new Exception('Invalid JSON data');

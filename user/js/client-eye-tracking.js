@@ -947,6 +947,76 @@ class ClientSideEyeTracking {
         }
     }
 
+    // Save final data using sendBeacon for reliable unload saving
+    saveFinalData() {
+        if (!this.isTracking) {
+            return;
+        }
+
+        const now = Date.now();
+        
+        // Calculate time in current state since last focus change
+        const timeInCurrentState = this.lastFocusChangeTime 
+            ? (now - this.lastFocusChangeTime) / 1000 
+            : 0;
+        
+        // Add current state time to accumulated times
+        let totalFocusedTime = this.focusedTime;
+        let totalUnfocusedTime = this.unfocusedTime;
+        
+        if (this.isFocused) {
+            totalFocusedTime += timeInCurrentState;
+        } else {
+            totalUnfocusedTime += timeInCurrentState;
+        }
+        
+        const totalTime = totalFocusedTime + totalUnfocusedTime;
+        
+        // Only save if we have meaningful time (> 0.5 seconds)
+        if (totalTime < 0.5) {
+            return;
+        }
+        
+        const data = {
+            user_id: this.userId,
+            module_id: this.moduleId,
+            section_id: this.sectionId || 0,
+            focused_time: Math.round(totalFocusedTime),
+            unfocused_time: Math.round(totalUnfocusedTime),
+            total_time: Math.round(totalTime)
+        };
+        
+        // Use sendBeacon for reliable delivery during page unload
+        if (navigator.sendBeacon) {
+            const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+            const success = navigator.sendBeacon('/api/save_tracking', blob);
+            if (success) {
+                console.log('✅ Final tracking data sent via sendBeacon:', {
+                    focused: Math.round(totalFocusedTime) + 's',
+                    unfocused: Math.round(totalUnfocusedTime) + 's',
+                    total: Math.round(totalTime) + 's'
+                });
+            } else {
+                console.warn('⚠️ sendBeacon failed, trying fetch...');
+                // Fallback to fetch with keepalive
+                fetch('/api/save_tracking', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                    keepalive: true
+                }).catch(err => console.error('❌ Final save failed:', err));
+            }
+        } else {
+            // Fallback for browsers without sendBeacon
+            fetch('/api/save_tracking', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+                keepalive: true
+            }).catch(err => console.error('❌ Final save failed:', err));
+        }
+    }
+
     updateSectionId(newSectionId) {
         if (newSectionId === this.sectionId) {
             console.log('📹 Section ID unchanged, no update needed');

@@ -45,10 +45,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// Cleanup on page unload
+// Cleanup and save data on page unload
 window.addEventListener('beforeunload', () => {
     if (window.clientEyeTracker) {
+        // Save final data using sendBeacon for reliability
+        window.clientEyeTracker.saveFinalData();
         window.clientEyeTracker.stop();
+    }
+});
+
+// Also save on visibility change (tab switch, minimize)
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden && window.clientEyeTracker) {
+        // Save data when tab becomes hidden
+        window.clientEyeTracker.saveTrackingData();
+    }
+});
+
+// Save on pagehide (more reliable than beforeunload)
+window.addEventListener('pagehide', () => {
+    if (window.clientEyeTracker) {
+        window.clientEyeTracker.saveFinalData();
     }
 });
 </script>
