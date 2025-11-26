@@ -22,8 +22,27 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit();
 }
 
-// Include database connection
-require_once '../config/database.php';
+// Database connection - use same pattern as other working files
+$host = getenv('MYSQLHOST') ?: 'tramway.proxy.rlwy.net';
+$port = getenv('MYSQLPORT') ?: '10241';
+$dbname = getenv('MYSQLDATABASE') ?: 'railway';
+$username = getenv('MYSQLUSER') ?: 'root';
+$password = getenv('MYSQLPASSWORD') ?: 'niCcpkrZKKhLDhXeTbcbhIYSFJBfNibP';
+
+try {
+    $conn = new mysqli($host, $username, $password, $dbname, intval($port));
+    if ($conn->connect_error) {
+        throw new Exception('Database connection failed: ' . $conn->connect_error);
+    }
+    $conn->set_charset('utf8mb4');
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Database connection failed: ' . $e->getMessage()
+    ]);
+    exit();
+}
 
 try {
     // Get JSON input
@@ -54,6 +73,7 @@ try {
     $focusPercentage = $totalTime > 0 ? round(($focusedTime / $totalTime) * 100, 2) : 0;
     
     // Check if a session already exists for this user/module/section today
+    // FIX: Use consistent date comparison with fetch query
     $checkQuery = "SELECT id, focused_time_seconds, unfocused_time_seconds, total_time_seconds 
                    FROM eye_tracking_sessions 
                    WHERE user_id = ? 
@@ -149,6 +169,11 @@ try {
     ]);
     
 } catch (Exception $e) {
+    // Log error for debugging
+    error_log("Eye tracking save error: " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
+    error_log("Request data: " . json_encode($_POST ?? json_decode(file_get_contents('php://input'), true) ?? []));
+    
     http_response_code(500);
     echo json_encode([
         'success' => false,

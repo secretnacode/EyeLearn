@@ -63,7 +63,7 @@ try {
         FROM eye_tracking_sessions ets
         LEFT JOIN modules m ON ets.module_id = m.id
         WHERE ets.user_id = ?
-        AND ets.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        AND DATE(ets.created_at) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
         GROUP BY DATE(ets.created_at), m.title
         ORDER BY session_date DESC, daily_study_time DESC
         LIMIT 30
@@ -114,15 +114,16 @@ try {
     }
 
     // Get focus trends (last 7 days) from real session data
+    // FIX: Use focused_time_seconds instead of total_time_seconds for accurate focus tracking
     $focus_trends_query = "
         SELECT 
             DATE(ets.created_at) as study_date,
-            SUM(ets.total_time_seconds) as daily_focus_time,
+            SUM(COALESCE(ets.focused_time_seconds, 0)) as daily_focus_time,
             COUNT(ets.id) as daily_sessions,
             AVG(ets.total_time_seconds) as avg_session_duration
         FROM eye_tracking_sessions ets
         WHERE ets.user_id = ? 
-        AND ets.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        AND DATE(ets.created_at) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
         GROUP BY DATE(ets.created_at)
         ORDER BY study_date ASC
     ";
