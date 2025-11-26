@@ -462,19 +462,17 @@ class ClientSideEyeTracking {
                 }
             } else {
                 // No face detected - consider as unfocused
-                const now = Date.now();
-                if (this.isFocused) {
+                const wasFocused = this.isFocused;
+                if (wasFocused) {
                     // Transitioning from focused to unfocused
+                    const now = Date.now();
                     const duration = (now - this.lastFocusChangeTime) / 1000;
                     this.focusedTime += duration;
                     this.isFocused = false;
                     this.lastFocusChangeTime = now;
-                } else if (this.lastFocusChangeTime) {
-                    // Already unfocused, continue tracking unfocused time
-                    const duration = (now - this.lastFocusChangeTime) / 1000;
-                    this.unfocusedTime += duration;
-                    this.lastFocusChangeTime = now;
                 }
+                // If already unfocused, don't update - the time will be calculated in updateUI()
+                // based on lastFocusChangeTime
             }
 
         } catch (error) {
@@ -815,24 +813,40 @@ class ClientSideEyeTracking {
             currentStatusEl.innerHTML = `<span class="text-xs font-medium ${this.isFocused ? 'text-green-400' : 'text-red-400'}">${status}</span>`;
         }
 
+        // Calculate current time in current state
+        const now = Date.now();
+        const timeInCurrentState = this.lastFocusChangeTime 
+            ? (now - this.lastFocusChangeTime) / 1000 
+            : 0;
+        
+        // Calculate total times including current state
+        let displayFocusedTime = this.focusedTime;
+        let displayUnfocusedTime = this.unfocusedTime;
+        
+        if (this.isFocused) {
+            displayFocusedTime += timeInCurrentState;
+        } else {
+            displayUnfocusedTime += timeInCurrentState;
+        }
+        
+        const totalTime = displayFocusedTime + displayUnfocusedTime;
+
         // Update times
         if (focusedEl) {
-            focusedEl.textContent = this.formatTime(this.focusedTime);
+            focusedEl.textContent = this.formatTime(displayFocusedTime);
         }
 
         if (unfocusedEl) {
-            unfocusedEl.textContent = this.formatTime(this.unfocusedTime);
+            unfocusedEl.textContent = this.formatTime(displayUnfocusedTime);
         }
 
         if (totalEl) {
-            const total = this.focusedTime + this.unfocusedTime;
-            totalEl.textContent = this.formatTime(total);
+            totalEl.textContent = this.formatTime(totalTime);
         }
 
         // Update focus percentage
         if (focusPercentageEl && focusProgressBar) {
-            const total = this.focusedTime + this.unfocusedTime;
-            const percentage = total > 0 ? Math.round((this.focusedTime / total) * 100) : 0;
+            const percentage = totalTime > 0 ? Math.round((displayFocusedTime / totalTime) * 100) : 0;
             focusPercentageEl.textContent = percentage + '%';
             focusProgressBar.style.width = percentage + '%';
             
@@ -919,9 +933,10 @@ class ClientSideEyeTracking {
                 });
                 
                 // Reset accumulated times after successful save
-                // The time in current state will be tracked from lastFocusChangeTime
+                // Update lastFocusChangeTime to now since we've saved the time up to now
                 this.focusedTime = 0;
                 this.unfocusedTime = 0;
+                this.lastFocusChangeTime = now; // Reset to current time to avoid double-counting
                 this.lastSaveTime = now;
             } else {
                 console.error('❌ Save failed:', result.error);
@@ -930,6 +945,30 @@ class ClientSideEyeTracking {
         } catch (error) {
             console.error('❌ Error saving tracking data:', error);
         }
+    }
+
+    updateSectionId(newSectionId) {
+        if (newSectionId === this.sectionId) {
+            console.log('📹 Section ID unchanged, no update needed');
+            return;
+        }
+        
+        console.log(`📹 Updating section ID from ${this.sectionId} to ${newSectionId}`);
+        
+        // Save current section's data before switching
+        this.saveTrackingData();
+        
+        // Reset session times for new section
+        this.focusedTime = 0;
+        this.unfocusedTime = 0;
+        this.startTime = Date.now();
+        this.lastFocusChangeTime = Date.now();
+        this.lastSaveTime = null;
+        
+        // Update section ID
+        this.sectionId = newSectionId;
+        
+        console.log('✅ Section ID updated, tracking continues for new section');
     }
 
     stop() {

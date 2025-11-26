@@ -2758,7 +2758,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                            document.addEventListener('DOMContentLoaded', () => {
                                const nextBtn = document.getElementById('next-section-btn');
                                attachNextButtonHandler(nextBtn);
+                               
+                               // Intercept sidebar link clicks to use AJAX navigation
+                               interceptSidebarLinks();
                            });
+                           
+                           // Intercept sidebar navigation links to prevent page reload
+                           function interceptSidebarLinks() {
+                               // Use event delegation to handle dynamically added links
+                               document.addEventListener('click', function(e) {
+                                   const sectionLink = e.target.closest('.section-item');
+                                   if (sectionLink && sectionLink.tagName === 'A') {
+                                       const href = sectionLink.getAttribute('href');
+                                       if (href && (href.includes('section_id=') || href.includes('final_quiz='))) {
+                                           e.preventDefault();
+                                           e.stopPropagation();
+                                           
+                                           console.log('🔄 Intercepting sidebar link click:', href);
+                                           
+                                           // Update section ID in eye trackers if they exist
+                                           if (href.includes('section_id=')) {
+                                               const urlParams = new URLSearchParams(href.split('?')[1] || href.substring(1));
+                                               const newSectionId = urlParams.get('section_id');
+                                               
+                                               // Update client-side eye tracker
+                                               if (window.clientEyeTracker && window.clientEyeTracker.updateSectionId) {
+                                                   window.clientEyeTracker.updateSectionId(parseInt(newSectionId));
+                                               }
+                                               
+                                               // Update WebSocket eye tracker if it exists
+                                               if (window.webcamSocket && window.webcamSocket.updateSectionId) {
+                                                   window.webcamSocket.updateSectionId(parseInt(newSectionId));
+                                               }
+                                           }
+                                           
+                                           // Use AJAX navigation instead of page reload
+                                           loadContent(href);
+                                       }
+                                   }
+                               });
+                           }
 
                            // Handle browser back/forward buttons
                            window.addEventListener('popstate', (event) => {
@@ -3716,6 +3755,12 @@ document.head.appendChild(styleSheet);
 // WebSocket Eye Tracking - Production Ready
 // ========================================
 document.addEventListener('DOMContentLoaded', function() {
+    // Prevent reinitialization if already initialized (for AJAX navigation)
+    if (window.webcamSocket && window.webcamSocket.isInitialized) {
+        console.log('🎯 WebSocket eye tracking already initialized, skipping reinitialization');
+        return;
+    }
+    
     console.log('🎯 Module content page loaded - initializing WebSocket eye tracking...');
     
     // ========================================
@@ -3878,6 +3923,9 @@ document.addEventListener('DOMContentLoaded', function() {
         webcamSocket.initialize(userId, moduleId, sectionId)
             .then(success => {
                 if (success) {
+                    // Mark as initialized and make globally accessible
+                    webcamSocket.isInitialized = true;
+                    window.webcamSocket = webcamSocket;
                     console.log('✅ WebSocket eye tracking fully initialized');
                 } else {
                     console.error('❌ Failed to initialize WebSocket eye tracking');

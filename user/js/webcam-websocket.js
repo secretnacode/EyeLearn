@@ -224,6 +224,28 @@ class WebcamWebSocket {
         });
     }
 
+    updateSectionId(newSectionId) {
+        if (newSectionId === this.sectionId) {
+            console.log('📹 Section ID unchanged, no update needed');
+            return;
+        }
+        
+        console.log(`📹 Updating WebSocket section ID from ${this.sectionId} to ${newSectionId}`);
+        
+        // Update section ID
+        this.sectionId = newSectionId;
+        
+        // Notify server of section change if connected
+        if (this.socket && this.isConnected) {
+            this.socket.emit('update_section', {
+                user_id: this.userId,
+                module_id: this.moduleId,
+                section_id: this.sectionId
+            });
+            console.log('✅ Section ID updated on server');
+        }
+    }
+
     startCapture() {
         if (this.isCapturing) {
             console.log('⚠️ Already capturing frames');

@@ -13,6 +13,12 @@
 <script>
 // Initialize Client-Side Eye Tracking
 document.addEventListener('DOMContentLoaded', async () => {
+    // Prevent reinitialization if already initialized (for AJAX navigation)
+    if (window.clientEyeTracker && window.clientEyeTracker.isInitialized) {
+        console.log('📹 Eye tracking already initialized, skipping reinitialization');
+        return;
+    }
+    
     try {
         console.log('📹 Initializing client-side eye tracking...');
         
@@ -27,6 +33,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Initialize tracker
         await tracker.init();
+        
+        // Mark as initialized
+        tracker.isInitialized = true;
         
         console.log('✅ Client-side eye tracking initialized successfully');
         
