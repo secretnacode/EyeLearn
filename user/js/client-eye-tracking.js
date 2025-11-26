@@ -278,83 +278,90 @@ class ClientSideEyeTracking {
     }
 
     calculateFocusState(prediction) {
-        // Get iris landmarks
         const keypoints = prediction.scaledMesh;
-        const leftIris = keypoints[468]; // Left iris center
-        const rightIris = keypoints[473]; // Right iris center
 
-        if (!leftIris || !rightIris) {
-            console.log('❌ No iris detected');
+        // Eye corner landmarks
+        const leftEyeInner = keypoints[133];   // Left eye inner corner
+        const leftEyeOuter = keypoints[33];    // Left eye outer corner
+        const rightEyeInner = keypoints[362];  // Right eye inner corner
+        const rightEyeOuter = keypoints[263];  // Right eye outer corner
+
+        // Iris centers
+        const leftIris = keypoints[468];
+        const rightIris = keypoints[473];
+
+        // Face landmarks for head pose
+        const noseTip = keypoints[1];
+        const chin = keypoints[152];
+        const foreheadLeft = keypoints[21];
+        const foreheadRight = keypoints[251];
+
+        if (!leftIris || !rightIris || !leftEyeInner || !leftEyeOuter) {
+            console.log('❌ Missing landmarks');
             return false;
         }
 
-        // Get face bounds to check distance/size
-        const nose = keypoints[1]; // Nose tip
-        const leftEye = keypoints[33]; // Left eye outer corner
-        const rightEye = keypoints[263]; // Right eye outer corner
-        const leftCheek = keypoints[123]; // Left cheek
-        const rightCheek = keypoints[352]; // Right cheek
+        // Calculate eye widths
+        const leftEyeWidth = Math.abs(leftEyeOuter[0] - leftEyeInner[0]);
+        const rightEyeWidth = Math.abs(rightEyeOuter[0] - rightEyeInner[0]);
+        const avgEyeWidth = (leftEyeWidth + rightEyeWidth) / 2;
 
-        // Calculate face width (distance between eyes)
-        const faceWidth = Math.abs(rightEye[0] - leftEye[0]);
+        console.log('👁️ Eye width:', avgEyeWidth.toFixed(2));
 
-        console.log('👤 Face width:', faceWidth);
-
-        // Face too small = too far away = unfocused
-        if (faceWidth < 100) {
-            console.log('❌ Too far from camera (face width < 100)');
+        // Face too small = too far
+        if (avgEyeWidth < 60) {
+            console.log('❌ Too far from camera');
             return false;
         }
 
-        // Calculate average iris position
-        const avgIrisX = (leftIris[0] + rightIris[0]) / 2;
-        const avgIrisY = (leftIris[1] + rightIris[1]) / 2;
+        // Calculate iris position within the eye (0 = inner corner, 1 = outer corner)
+        const leftIrisRatio = (leftIris[0] - leftEyeInner[0]) / leftEyeWidth;
+        const rightIrisRatio = (rightIris[0] - rightEyeInner[0]) / rightEyeWidth;
 
-        // Get nose position for reference
-        const noseX = nose[0];
-        const noseY = nose[1];
-
-        // Normalize iris position to video dimensions
-        const normalizedIrisX = avgIrisX / this.videoElement.videoWidth;
-        const normalizedIrisY = avgIrisY / this.videoElement.videoHeight;
-
-        // Normalize nose position
-        const normalizedNoseX = noseX / this.videoElement.videoWidth;
-        const normalizedNoseY = noseY / this.videoElement.videoHeight;
-
-        console.log('👁️ Iris position:', {
-            x: normalizedIrisX.toFixed(3),
-            y: normalizedIrisY.toFixed(3)
-        });
-        console.log('👃 Nose position:', {
-            x: normalizedNoseX.toFixed(3),
-            y: normalizedNoseY.toFixed(3)
+        console.log('👁️ Iris ratios:', {
+            left: leftIrisRatio.toFixed(3),
+            right: rightIrisRatio.toFixed(3)
         });
 
-        // Calculate deviation from center (0.5, 0.5)
-        const irisXDeviation = Math.abs(normalizedIrisX - 0.5);
-        const irisYDeviation = Math.abs(normalizedIrisY - 0.5);
-        const noseXDeviation = Math.abs(normalizedNoseX - 0.5);
-        const noseYDeviation = Math.abs(normalizedNoseY - 0.5);
+        // When looking straight at camera, iris should be centered (around 0.5)
+        // Looking left: ratio < 0.5, Looking right: ratio > 0.5
+        const leftGazeCentered = Math.abs(leftIrisRatio - 0.5) < 0.15;
+        const rightGazeCentered = Math.abs(rightIrisRatio - 0.5) < 0.15;
 
-        console.log('📏 Deviations:', {
-            irisX: irisXDeviation.toFixed(3),
-            irisY: irisYDeviation.toFixed(3),
-            noseX: noseXDeviation.toFixed(3),
-            noseY: noseYDeviation.toFixed(3)
-        });
+        // Check head rotation using forehead and nose
+        const faceWidth = Math.abs(foreheadRight[0] - foreheadLeft[0]);
+        const noseXOffset = noseTip[0] - (foreheadLeft[0] + foreheadRight[0]) / 2;
+        const headRotationRatio = Math.abs(noseXOffset / faceWidth);
 
-        // VERY STRICT: Both nose AND eyes must be centered
-        const noseIsCentered = noseXDeviation < 0.1 && noseYDeviation < 0.1;
-        const irisIsCentered = irisXDeviation < 0.1 && irisYDeviation < 0.1;
+        console.log('🔄 Head rotation ratio:', headRotationRatio.toFixed(3));
+
+        // Head turned away if rotation > 0.1
+        const headIsStraight = headRotationRatio < 0.1;
+
+        // Vertical gaze check - iris Y position relative to eye
+        const leftEyeCenter = (leftEyeInner[1] + leftEyeOuter[1]) / 2;
+        const rightEyeCenter = (rightEyeInner[1] + rightEyeOuter[1]) / 2;
+        const leftVerticalOffset = Math.abs(leftIris[1] - leftEyeCenter);
+        const rightVerticalOffset = Math.abs(rightIris[1] - rightEyeCenter);
+        const avgVerticalOffset = (leftVerticalOffset + rightVerticalOffset) / 2;
+
+        console.log('⬆️ Vertical offset:', avgVerticalOffset.toFixed(2));
+
+        // Looking up/down if offset > 5 pixels
+        const verticalGazeOk = avgVerticalOffset < 5;
 
         console.log('✓ Checks:', {
-            noseCentered: noseIsCentered,
-            irisCentered: irisIsCentered
+            leftGaze: leftGazeCentered,
+            rightGaze: rightGazeCentered,
+            headStraight: headIsStraight,
+            verticalOk: verticalGazeOk
         });
 
-        const isFocused = noseIsCentered && irisIsCentered;
+        // ALL checks must pass
+        const isFocused = leftGazeCentered && rightGazeCentered && headIsStraight && verticalGazeOk;
+
         console.log(isFocused ? '✅ FOCUSED' : '❌ UNFOCUSED');
+        console.log('---');
 
         return isFocused;
     }
