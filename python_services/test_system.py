@@ -117,7 +117,7 @@ def test_service_connection():
             return False
     except requests.exceptions.ConnectionError:
         print("   ❌ Cannot connect to service (not running)")
-        print("   💡 Start the service: python eye_tracking_service.py")
+        print("   💡 Start the service: python eye_tracking_service_websocket.py")
         return False
     except requests.exceptions.Timeout:
         print("   ❌ Service connection timed out")
@@ -209,7 +209,7 @@ def main():
     if passed == total:
         print("🎉 All tests passed! System is ready to use.")
         print("\nNext steps:")
-        print("1. Start the eye tracking service: python eye_tracking_service.py")
+        print("1. Start the eye tracking service: python eye_tracking_service_websocket.py")
         print("2. Open your browser and navigate to a module")
         print("3. Allow webcam access when prompted")
     elif passed >= total - 2:

@@ -80,7 +80,7 @@ source venv/bin/activate
 
 # Start the eye tracking service in background
 echo "Eye Tracking Service Starting..."
-python eye_tracking_service.py &
+python eye_tracking_service_websocket.py &
 EYE_TRACKING_PID=$!
 cd ..
 

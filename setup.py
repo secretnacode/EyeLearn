@@ -296,7 +296,7 @@ echo.
 
 echo 1. Starting Eye Tracking Service...
 cd python_services
-start "Eye Tracking Service" cmd /k "venv\\Scripts\\activate && python eye_tracking_service.py"
+start "Eye Tracking Service" cmd /k "venv\\Scripts\\activate && python eye_tracking_service_websocket.py"
 cd ..
 
 echo 2. Eye Tracking Service started in new window
@@ -319,7 +319,7 @@ echo
 echo "1. Starting Eye Tracking Service..."
 cd python_services
 source venv/bin/activate
-python eye_tracking_service.py &
+python eye_tracking_service_websocket.py &
 EYE_TRACKING_PID=$!
 cd ..
 
@@ -355,10 +355,10 @@ def print_final_instructions():
     
     if platform.system() == "Windows":
         print("   - Double-click: start_eyelearn.bat")
-        print("   - Or manually: cd python_services && venv\\Scripts\\activate && python eye_tracking_service.py")
+        print("   - Or manually: cd python_services && venv\\Scripts\\activate && python eye_tracking_service_websocket.py")
     else:
         print("   - Run: ./start_eyelearn.sh")
-        print("   - Or manually: cd python_services && source venv/bin/activate && python eye_tracking_service.py")
+        print("   - Or manually: cd python_services && source venv/bin/activate && python eye_tracking_service_websocket.py")
     
     print("5. Access the platform: http://localhost/capstone")
     print()

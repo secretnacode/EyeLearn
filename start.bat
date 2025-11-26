@@ -56,7 +56,7 @@ echo.
 
 echo Starting Eye Tracking Service...
 cd python_services
-start "EyeLearn - Eye Tracking Service" cmd /k "venv\Scripts\activate && echo Eye Tracking Service Starting... && python eye_tracking_service.py"
+start "EyeLearn - Eye Tracking Service" cmd /k "venv\Scripts\activate && echo Eye Tracking Service Starting... && python eye_tracking_service_websocket.py"
 cd ..
 
 echo.

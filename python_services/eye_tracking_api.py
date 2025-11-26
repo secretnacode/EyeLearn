@@ -48,13 +48,18 @@ def init_database():
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     user_id INT NOT NULL,
                     module_id INT NOT NULL,
-                    section_id VARCHAR(50),
-                    focused_time INT NOT NULL,
-                    unfocused_time INT NOT NULL,
-                    total_time INT NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    INDEX idx_user_module (user_id, module_id)
-                )
+                    section_id INT DEFAULT NULL,
+                    total_time_seconds INT DEFAULT 0,
+                    session_type ENUM('viewing','pause','resume') DEFAULT 'viewing',
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    focused_time_seconds INT DEFAULT 0 COMMENT 'Time spent focused in seconds',
+                    unfocused_time_seconds INT DEFAULT 0 COMMENT 'Time spent unfocused in seconds',
+                    session_data TEXT DEFAULT NULL,
+                    INDEX idx_user_module (user_id, module_id),
+                    INDEX idx_user_section (user_id, section_id),
+                    INDEX idx_created_at (created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """)
             conn.commit()
             cursor.close()
@@ -102,6 +107,13 @@ def save_tracking():
                     'error': f'Missing required field: {field}'
                 }), 400
         
+        # Map API field names to database column names
+        focused_time_seconds = int(data['focused_time'])
+        unfocused_time_seconds = int(data['unfocused_time'])
+        total_time_seconds = int(data['total_time'])
+        section_id = data.get('section_id')
+        session_type = data.get('session_type', 'viewing')
+        
         # Connect to database
         conn = get_db_connection()
         if not conn:
@@ -113,20 +125,21 @@ def save_tracking():
         try:
             cursor = conn.cursor()
             
-            # Insert tracking data
+            # Insert tracking data - use correct column names matching database schema
             query = """
                 INSERT INTO eye_tracking_sessions 
-                (user_id, module_id, section_id, focused_time, unfocused_time, total_time)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                (user_id, module_id, section_id, total_time_seconds, focused_time_seconds, unfocused_time_seconds, session_type)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
             """
             
             values = (
                 data['user_id'],
                 data['module_id'],
-                data.get('section_id'),  # Optional
-                data['focused_time'],
-                data['unfocused_time'],
-                data['total_time']
+                section_id,
+                total_time_seconds,
+                focused_time_seconds,
+                unfocused_time_seconds,
+                session_type
             )
             
             cursor.execute(query, values)
@@ -137,7 +150,7 @@ def save_tracking():
             conn.close()
             
             logger.info(f"✅ Saved tracking data: User {data['user_id']}, Module {data['module_id']}, "
-                       f"Focused: {data['focused_time']}s, Total: {data['total_time']}s, ID: {session_id}")
+                       f"Focused: {focused_time_seconds}s, Total: {total_time_seconds}s, ID: {session_id}")
             
             return jsonify({
                 'success': True,
@@ -196,10 +209,10 @@ def get_tracking_stats():
             cursor.execute(query, params)
             sessions = cursor.fetchall()
             
-            # Calculate totals
-            total_focused = sum(s.get('focused_time', 0) for s in sessions)
-            total_unfocused = sum(s.get('unfocused_time', 0) for s in sessions)
-            total_time = sum(s.get('total_time', 0) for s in sessions)
+            # Calculate totals - use correct column names
+            total_focused = sum(s.get('focused_time_seconds', 0) for s in sessions)
+            total_unfocused = sum(s.get('unfocused_time_seconds', 0) for s in sessions)
+            total_time = sum(s.get('total_time_seconds', 0) for s in sessions)
             
             focus_rate = 0
             if total_time > 0:

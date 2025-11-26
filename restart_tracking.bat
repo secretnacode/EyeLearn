@@ -17,4 +17,4 @@ echo 🎯 Database Integration Status: ENABLED
 echo 📊 Data will now be saved to dashboard-compatible format
 echo 🔄 Service restarting...
 echo.
-python eye_tracking_service.py
+python eye_tracking_service_websocket.py
