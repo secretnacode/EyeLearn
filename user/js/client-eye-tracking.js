@@ -113,7 +113,7 @@ class ClientSideEyeTracking {
         const container = document.createElement('div');
         container.id = 'client-eye-tracking-container';
         container.className = 'fixed top-4 right-4 z-50 bg-gray-900 rounded-lg shadow-2xl overflow-hidden';
-        container.style.width = '280px';
+        container.style.width = '220px'; // Reduced from 280px
 
         container.innerHTML = `
             <div class="bg-gradient-to-r from-blue-600 to-purple-600 px-3 py-2 flex items-center justify-between">
@@ -133,7 +133,7 @@ class ClientSideEyeTracking {
                 <div class="relative mb-2">
                     <video id="tracking-video" autoplay playsinline muted class="w-full rounded border-2 border-gray-700"></video>
                     <!-- Face mesh overlay canvas -->
-                    <canvas id="tracking-canvas" width="254" height="190" class="absolute top-0 left-0 w-full h-full rounded pointer-events-none"></canvas>
+                    <canvas id="tracking-canvas" width="204" height="153" class="absolute top-0 left-0 w-full h-full rounded pointer-events-none"></canvas>
                 </div>
                 
                 <!-- Stats -->

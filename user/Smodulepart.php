@@ -1695,6 +1695,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     </style>
+    
+    <!-- Client-Side Eye Tracking Initialization -->
+    <?php include 'includes/eye-tracking-init.php'; ?>
 </head>
 <body class="bg-gray-50">
     <!-- Top Navigation Bar -->
