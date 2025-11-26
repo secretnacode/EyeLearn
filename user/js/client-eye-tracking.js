@@ -38,6 +38,12 @@ class ClientSideEyeTracking {
         this.videoReady = false;
         this.videoReadyStateCheckInterval = null;
 
+        // Eye tracking improvements pipeline
+        this.trackingPipeline = null;
+        if (window.EyeTrackingPipeline) {
+            this.trackingPipeline = new EyeTrackingPipeline();
+        }
+
         console.log('📹 Client-Side Eye Tracking initialized');
     }
 
@@ -173,20 +179,53 @@ class ClientSideEyeTracking {
         if (!container) {
             container = document.createElement('div');
             container.id = 'eye-tracking-container';
-            container.className = 'fixed top-16 right-4 z-40 bg-black rounded-lg shadow-xl border border-gray-700 p-4 w-80';
+            container.className = 'fixed top-16 right-4 z-40 bg-black rounded-lg shadow-xl border border-gray-700 p-2 w-56';
+            container.style.transition = 'all 0.3s ease';
             document.body.appendChild(container);
+            
+            // Make draggable
+            this.makeDraggable(container);
         }
 
-        container.innerHTML = `
-            <h3 class="text-sm font-semibold text-white mb-3 flex items-center justify-between cursor-move">
-                <span>Eye Tracking</span>
-                <span id="eye-tracking-status-indicator" class="flex items-center gap-2">
-                    <span class="relative flex h-3 w-3 bg-gray-500 rounded-full"></span>
-                    <span class="text-xs text-gray-300 font-medium">Initializing...</span>
-                </span>
-            </h3>
-            <div class="space-y-3">
-                <div class="relative w-full h-48 bg-gray-900 rounded overflow-hidden">
+        this.isMinimized = false;
+        const contentHTML = this.isMinimized ? this.getMinimizedHTML() : this.getFullHTML();
+        container.innerHTML = contentHTML;
+
+        // Set up minimize button
+        const minimizeBtn = container.querySelector('.minimize-btn');
+        if (minimizeBtn) {
+            minimizeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleMinimize();
+            });
+        }
+
+        this.videoElement = document.getElementById('eye-tracking-video');
+        this.canvasElement = document.getElementById('eye-tracking-canvas');
+        if (this.canvasElement) {
+            this.canvasCtx = this.canvasElement.getContext('2d');
+        }
+        
+        // Set canvas size to match video
+        if (this.videoElement && this.canvasElement) {
+            this.canvasElement.width = this.videoElement.offsetWidth;
+            this.canvasElement.height = this.videoElement.offsetHeight;
+        }
+    }
+
+    getFullHTML() {
+        return `
+            <div class="widget-header flex items-center justify-between mb-2 cursor-move">
+                <h3 class="text-xs font-semibold text-white">Eye Tracking</h3>
+                <div class="flex items-center gap-1">
+                    <span id="eye-tracking-status-indicator" class="flex items-center gap-1">
+                        <span class="relative flex h-2 w-2 bg-gray-500 rounded-full"></span>
+                    </span>
+                    <button class="minimize-btn text-gray-400 hover:text-white text-xs px-1" title="Minimize">−</button>
+                </div>
+            </div>
+            <div class="widget-content">
+                <div class="relative w-full h-32 bg-gray-900 rounded overflow-hidden mb-2">
                     <video id="eye-tracking-video" 
                            autoplay 
                            playsinline 
@@ -195,44 +234,128 @@ class ClientSideEyeTracking {
                     <canvas id="eye-tracking-canvas" 
                             class="absolute top-0 left-0 w-full h-full pointer-events-none"></canvas>
                 </div>
-                <div class="space-y-2 text-xs">
+                <div class="space-y-1 text-xs">
                     <div class="flex justify-between items-center">
-                        <span class="text-gray-300">Focused:</span>
+                        <span class="text-gray-400">F:</span>
                         <span id="eye-tracking-focused" class="font-medium text-green-400">0s</span>
                     </div>
                     <div class="flex justify-between items-center">
-                        <span class="text-gray-300">Unfocused:</span>
+                        <span class="text-gray-400">U:</span>
                         <span id="eye-tracking-unfocused" class="font-medium text-red-400">0s</span>
                     </div>
                     <div class="flex justify-between items-center">
-                        <span class="text-gray-300">Total:</span>
+                        <span class="text-gray-400">T:</span>
                         <span id="eye-tracking-total" class="font-medium text-blue-400">0s</span>
                     </div>
                 </div>
-                <div class="mt-2">
-                    <div class="flex justify-between items-center mb-1 text-xs">
-                        <span class="text-gray-300">Focus:</span>
-                        <span id="eye-tracking-focus-percentage" class="font-medium text-white">0%</span>
+                <div class="mt-1">
+                    <div class="flex justify-between items-center mb-0.5 text-xs">
+                        <span class="text-gray-400">Focus:</span>
+                        <span id="eye-tracking-focus-percentage" class="font-medium text-white text-xs">0%</span>
                     </div>
-                    <div class="w-full bg-gray-700 rounded-full h-2">
-                        <div id="eye-tracking-focus-progress-bar" class="bg-gray-500 h-2 rounded-full transition-all duration-300" style="width: 0%;"></div>
+                    <div class="w-full bg-gray-700 rounded-full h-1.5">
+                        <div id="eye-tracking-focus-progress-bar" class="bg-gray-500 h-1.5 rounded-full transition-all duration-300" style="width: 0%;"></div>
                     </div>
                 </div>
-                <div id="eye-tracking-current-status" class="mt-3 p-2 bg-gray-900 rounded text-center">
+                <div id="eye-tracking-current-status" class="mt-1.5 p-1 bg-gray-900 rounded text-center">
                     <span class="text-xs font-medium text-gray-200">Initializing...</span>
                 </div>
             </div>
         `;
+    }
 
-        this.videoElement = document.getElementById('eye-tracking-video');
-        this.canvasElement = document.getElementById('eye-tracking-canvas');
-        this.canvasCtx = this.canvasElement.getContext('2d');
-        
-        // Set canvas size to match video
-        if (this.videoElement && this.canvasElement) {
-            this.canvasElement.width = this.videoElement.offsetWidth;
-            this.canvasElement.height = this.videoElement.offsetHeight;
+    getMinimizedHTML() {
+        return `
+            <div class="widget-header flex items-center justify-between cursor-move">
+                <h3 class="text-xs font-semibold text-white">Eye Tracking</h3>
+                <div class="flex items-center gap-1">
+                    <span id="eye-tracking-status-indicator" class="flex items-center gap-1">
+                        <span class="relative flex h-2 w-2 bg-gray-500 rounded-full"></span>
+                    </span>
+                    <button class="minimize-btn text-gray-400 hover:text-white text-xs px-1" title="Expand">+</button>
+                </div>
+            </div>
+            <div class="widget-content mt-1">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-gray-400">Focus:</span>
+                    <span id="eye-tracking-focus-percentage" class="font-medium text-white">0%</span>
+                </div>
+                <div id="eye-tracking-current-status" class="mt-1 text-xs text-gray-300 text-center">
+                    <span>Minimized</span>
+                </div>
+            </div>
+        `;
+    }
+
+    toggleMinimize() {
+        this.isMinimized = !this.isMinimized;
+        const container = document.getElementById('eye-tracking-container');
+        if (container) {
+            container.innerHTML = this.isMinimized ? this.getMinimizedHTML() : this.getFullHTML();
+            
+            // Re-attach minimize button
+            const minimizeBtn = container.querySelector('.minimize-btn');
+            if (minimizeBtn) {
+                minimizeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.toggleMinimize();
+                });
+            }
+
+            // Re-initialize video/canvas if expanded
+            if (!this.isMinimized) {
+                this.videoElement = document.getElementById('eye-tracking-video');
+                this.canvasElement = document.getElementById('eye-tracking-canvas');
+                if (this.canvasElement) {
+                    this.canvasCtx = this.canvasElement.getContext('2d');
+                }
+                if (this.videoElement && this.canvasElement) {
+                    this.canvasElement.width = this.videoElement.offsetWidth;
+                    this.canvasElement.height = this.videoElement.offsetHeight;
+                }
+            }
         }
+    }
+
+    makeDraggable(element) {
+        let isDragging = false;
+        let currentX, currentY, initialX, initialY;
+
+        const header = element.querySelector('.widget-header') || element;
+        
+        header.addEventListener('mousedown', function(e) {
+            if (e.target.classList.contains('minimize-btn')) return;
+            
+            isDragging = true;
+            initialX = e.clientX - element.offsetLeft;
+            initialY = e.clientY - element.offsetTop;
+            element.style.cursor = 'grabbing';
+        });
+
+        document.addEventListener('mousemove', function(e) {
+            if (isDragging) {
+                e.preventDefault();
+                currentX = e.clientX - initialX;
+                currentY = e.clientY - initialY;
+
+                // Keep within viewport
+                const maxX = window.innerWidth - element.offsetWidth;
+                const maxY = window.innerHeight - element.offsetHeight;
+                currentX = Math.max(0, Math.min(currentX, maxX));
+                currentY = Math.max(0, Math.min(currentY, maxY));
+
+                element.style.left = currentX + 'px';
+                element.style.top = currentY + 'px';
+                element.style.right = 'auto';
+            }
+        });
+
+        document.addEventListener('mouseup', function() {
+            if (isDragging) {
+                isDragging = false;
+                element.style.cursor = 'default';
+            }
+        });
     }
 
     startTracking() {

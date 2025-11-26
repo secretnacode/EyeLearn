@@ -4,6 +4,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/facemesh"></script>
 
+<!-- Eye Tracking Improvements -->
+<script src="js/eye-tracking-improvements.js"></script>
+
 <!-- Client-Side Eye Tracking Module -->
 <script src="js/client-eye-tracking.js"></script>
 

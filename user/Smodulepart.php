@@ -1736,6 +1736,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 font-size: 3rem;
             }
         }
+
+        /* Eye tracking improvements styles */
+        .gaze-clicked {
+            outline: 3px solid #10b981 !important;
+            outline-offset: 2px !important;
+            transition: outline 0.2s ease !important;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+            50% {
+                opacity: 0.5;
+                transform: translate(-50%, -50%) scale(1.2);
+            }
+        }
+
+        #calibration-point {
+            animation: pulse 1s infinite;
+        }
+
+        /* Widget minimize animation */
+        #eye-tracking-container {
+            transition: all 0.3s ease;
+        }
+
+        #eye-tracking-container.minimized {
+            width: 200px !important;
+        }
     </style>
     
     <!-- Client-Side Eye Tracking Initialization -->
@@ -3692,11 +3723,32 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Widget is now a fixed bar, no dragging needed
         
+        // Initialize eye tracking pipeline if available
+        let trackingPipeline = null;
+        if (window.EyeTrackingPipeline) {
+            trackingPipeline = new EyeTrackingPipeline();
+            console.log('✅ Eye tracking improvements pipeline initialized');
+        }
+
         // Create WebSocket connection
         webcamSocket = new WebcamWebSocket({
             onTrackingUpdate: function(data) {
-                // Widget is always visible now
-                
+                // Process gaze data through improvements pipeline if available
+                if (trackingPipeline && data.gaze_x !== undefined && data.gaze_y !== undefined) {
+                    const processed = trackingPipeline.processGazeData(
+                        data.gaze_x,
+                        data.gaze_y,
+                        data.confidence || 1.0,
+                        data.lighting || 1.0,
+                        data.face_mesh || null
+                    );
+
+                    // Update UI with processed data
+                    if (processed.isFixation !== undefined) {
+                        data.is_focused = processed.isFixation;
+                    }
+                }
+
                 // Update focus status
                 if (data.is_focused !== undefined) {
                     const status = data.is_focused ? '✅ Currently Focused' : '⚠️ Currently Unfocused';
