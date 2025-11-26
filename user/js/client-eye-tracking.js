@@ -285,7 +285,18 @@ class ClientSideEyeTracking {
 
         if (!leftIris || !rightIris) return false;
 
-        // Calculate average position
+        // Get face bounds to check distance/size
+        const nose = keypoints[1]; // Nose tip
+        const leftEye = keypoints[33]; // Left eye outer corner
+        const rightEye = keypoints[263]; // Right eye outer corner
+
+        // Calculate face width (distance between eyes)
+        const faceWidth = Math.abs(rightEye[0] - leftEye[0]);
+
+        // Face too small = too far away = unfocused
+        if (faceWidth < 80) return false;
+
+        // Calculate average iris position
         const avgX = (leftIris[0] + rightIris[0]) / 2;
         const avgY = (leftIris[1] + rightIris[1]) / 2;
 
@@ -293,11 +304,19 @@ class ClientSideEyeTracking {
         const normalizedX = avgX / this.videoElement.videoWidth;
         const normalizedY = avgY / this.videoElement.videoHeight;
 
-        // Check if looking at center (±20% tolerance)
-        const isXCentered = Math.abs(normalizedX - 0.5) < 0.2;
-        const isYCentered = Math.abs(normalizedY - 0.5) < 0.2;
+        // STRICTER tolerance: Check if looking at center (±15% instead of ±20%)
+        const isXCentered = Math.abs(normalizedX - 0.5) < 0.15;
+        const isYCentered = Math.abs(normalizedY - 0.5) < 0.15;
 
-        return isXCentered && isYCentered;
+        // Calculate gaze deviation from center
+        const xDeviation = Math.abs(normalizedX - 0.5);
+        const yDeviation = Math.abs(normalizedY - 0.5);
+
+        // Must be looking fairly directly at camera
+        // If looking too far left/right/up/down, not focused
+        const isCenterGaze = (xDeviation < 0.12 && yDeviation < 0.12);
+
+        return isXCentered && isYCentered && isCenterGaze;
     }
 
     updateFocusState(isFocused) {
