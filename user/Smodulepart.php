@@ -1831,8 +1831,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             document.querySelectorAll('.part-sections').forEach(section => {
                                 if (section !== sectionsContainer) {
                                     section.style.display = 'none';
-                                    section.previousElementSibling?.classList.remove('rotated');
-                                    section.previousElementSibling?.setAttribute('aria-expanded', 'false');
+                                    if (section.previousElementSibling) {
+                                section.previousElementSibling.classList.remove('rotated');
+                            }
+                                    if (section.previousElementSibling) {
+                                section.previousElementSibling.setAttribute('aria-expanded', 'false');
+                            }
                                 }
                             });
 
