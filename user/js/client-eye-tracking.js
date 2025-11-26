@@ -129,11 +129,12 @@ class ClientSideEyeTracking {
             </div>
             
             <div id="tracking-content" class="p-3">
-                <!-- Camera feed (hidden but active) -->
-                <video id="tracking-video" autoplay playsinline muted style="display: none;"></video>
-                
-                <!-- Mini preview canvas -->
-                <canvas id="tracking-canvas" width="254" height="190" class="rounded mb-2 border-2 border-gray-700"></canvas>
+                <!-- Live Camera Feed (visible) -->
+                <div class="relative mb-2">
+                    <video id="tracking-video" autoplay playsinline muted class="w-full rounded border-2 border-gray-700"></video>
+                    <!-- Face mesh overlay canvas -->
+                    <canvas id="tracking-canvas" width="254" height="190" class="absolute top-0 left-0 w-full h-full rounded pointer-events-none"></canvas>
+                </div>
                 
                 <!-- Stats -->
                 <div class="space-y-1 text-xs text-gray-300">
@@ -226,53 +227,48 @@ class ClientSideEyeTracking {
         const width = this.canvasElement.width;
         const height = this.canvasElement.height;
 
-        // Clear canvas
+        // Clear canvas (transparent for overlay)
         ctx.clearRect(0, 0, width, height);
 
-        // Draw video frame
-        ctx.drawImage(this.videoElement, 0, 0, width, height);
-
-        // Draw face mesh if detected
+        // Draw face mesh overlay if detected
         if (predictions.length > 0) {
             const keypoints = predictions[0].scaledMesh;
 
-            // Draw face outline
-            ctx.fillStyle = this.isFocused ? 'rgba(0, 255, 0, 0.3)' : 'rgba(255, 0, 0, 0.3)';
-            ctx.strokeStyle = this.isFocused ? '#00ff00' : '#ff0000';
-            ctx.lineWidth = 2;
+            // Calculate scaling factors for overlay
+            const scaleX = width / this.videoElement.videoWidth;
+            const scaleY = height / this.videoElement.videoHeight;
 
-            // Draw key landmarks
+            // Draw key landmarks with proper scaling
+            ctx.fillStyle = this.isFocused ? 'rgba(0, 255, 0, 0.5)' : 'rgba(255, 0, 0, 0.5)';
             keypoints.forEach(([x, y]) => {
                 ctx.beginPath();
-                ctx.arc(x * (width / this.videoElement.videoWidth),
-                    y * (height / this.videoElement.videoHeight),
-                    1, 0, 2 * Math.PI);
+                ctx.arc(x * scaleX, y * scaleY, 1, 0, 2 * Math.PI);
                 ctx.fill();
             });
 
-            // Draw iris centers
+            // Draw iris centers (bright cyan for visibility)
             const leftIris = keypoints[468];
             const rightIris = keypoints[473];
 
             if (leftIris && rightIris) {
                 ctx.fillStyle = '#00ffff';
+
                 ctx.beginPath();
-                ctx.arc(leftIris[0] * (width / this.videoElement.videoWidth),
-                    leftIris[1] * (height / this.videoElement.videoHeight),
-                    5, 0, 2 * Math.PI);
+                ctx.arc(leftIris[0] * scaleX, leftIris[1] * scaleY, 5, 0, 2 * Math.PI);
                 ctx.fill();
 
                 ctx.beginPath();
-                ctx.arc(rightIris[0] * (width / this.videoElement.videoWidth),
-                    rightIris[1] * (height / this.videoElement.videoHeight),
-                    5, 0, 2 * Math.PI);
+                ctx.arc(rightIris[0] * scaleX, rightIris[1] * scaleY, 5, 0, 2 * Math.PI);
                 ctx.fill();
             }
         }
 
-        // Draw status overlay
-        ctx.font = 'bold 14px Arial';
+        // Draw status overlay text
+        ctx.font = 'bold 16px Arial';
         ctx.fillStyle = this.isFocused ? '#00ff00' : '#ff0000';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+        ctx.strokeText(this.isFocused ? 'FOCUSED' : 'UNFOCUSED', 10, 25);
         ctx.fillText(this.isFocused ? 'FOCUSED' : 'UNFOCUSED', 10, 25);
     }
 
