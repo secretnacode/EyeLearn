@@ -910,7 +910,7 @@ class ClientSideEyeTracking {
 
         try {
             // FIX #3: Proper fetch with explicit headers and JSON.stringify
-            const response = await fetch('/api/save_tracking', {
+            const response = await fetch('/api/save_tracking.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -989,7 +989,7 @@ class ClientSideEyeTracking {
         // Use sendBeacon for reliable delivery during page unload
         if (navigator.sendBeacon) {
             const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-            const success = navigator.sendBeacon('/api/save_tracking', blob);
+            const success = navigator.sendBeacon('/api/save_tracking.php', blob);
             if (success) {
                 console.log('✅ Final tracking data sent via sendBeacon:', {
                     focused: Math.round(totalFocusedTime) + 's',
@@ -999,7 +999,7 @@ class ClientSideEyeTracking {
             } else {
                 console.warn('⚠️ sendBeacon failed, trying fetch...');
                 // Fallback to fetch with keepalive
-                fetch('/api/save_tracking', {
+                fetch('/api/save_tracking.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data),
@@ -1008,7 +1008,7 @@ class ClientSideEyeTracking {
             }
         } else {
             // Fallback for browsers without sendBeacon
-            fetch('/api/save_tracking', {
+            fetch('/api/save_tracking.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),

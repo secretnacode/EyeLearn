@@ -71,7 +71,10 @@ try {
     // Extract data
     $userId = (int)$data['user_id'];
     $moduleId = (int)$data['module_id'];
-    $sectionId = isset($data['section_id']) && $data['section_id'] ? (int)$data['section_id'] : null;
+    // Handle section_id: use NULL if 0 or not set (database allows NULL)
+    $sectionId = isset($data['section_id']) && $data['section_id'] && (int)$data['section_id'] > 0 
+        ? (int)$data['section_id'] 
+        : null;
     $focusedTime = (int)$data['focused_time'];
     $unfocusedTime = (int)$data['unfocused_time'];
     $totalTime = (int)$data['total_time'];
@@ -81,13 +84,24 @@ try {
     
     // Always create a new session record to ensure accurate session counting
     // Each study session should be a separate record for proper analytics
+    // session_type enum: 'viewing','pause','resume' - use 'viewing' for study sessions
     $insertQuery = "INSERT INTO eye_tracking_sessions 
                     (user_id, module_id, section_id, focused_time_seconds, unfocused_time_seconds, total_time_seconds, session_type, created_at, last_updated)
-                    VALUES (?, ?, ?, ?, ?, ?, 'learning', NOW(), NOW())";
+                    VALUES (?, ?, ?, ?, ?, ?, 'viewing', NOW(), NOW())";
     
     $stmt = $conn->prepare($insertQuery);
+    if (!$stmt) {
+        throw new Exception('Failed to prepare statement: ' . $conn->error);
+    }
+    
+    // Bind parameters: user_id, module_id, section_id (can be NULL), focused_time, unfocused_time, total_time
+    // For NULL values, we need to pass the variable directly - mysqli will handle it
     $stmt->bind_param('iiiiii', $userId, $moduleId, $sectionId, $focusedTime, $unfocusedTime, $totalTime);
-    $stmt->execute();
+    
+    if (!$stmt->execute()) {
+        throw new Exception('Failed to execute insert: ' . $stmt->error);
+    }
+    
     $sessionId = $conn->insert_id;
     $stmt->close();
     
@@ -121,8 +135,13 @@ try {
                                   (user_id, module_id, section_id, date, total_focused_time, total_unfocused_time, focus_percentage, session_count, created_at, updated_at)
                                   VALUES (?, ?, ?, CURDATE(), ?, ?, ?, 1, NOW(), NOW())";
         $stmt = $conn->prepare($insertAnalyticsQuery);
+        if (!$stmt) {
+            throw new Exception('Failed to prepare analytics insert: ' . $conn->error);
+        }
         $stmt->bind_param('iiiiiid', $userId, $moduleId, $sectionId, $focusedTime, $unfocusedTime, $focusPercentage);
-        $stmt->execute();
+        if (!$stmt->execute()) {
+            throw new Exception('Failed to execute analytics insert: ' . $stmt->error);
+        }
         $stmt->close();
     }
     
@@ -142,14 +161,21 @@ try {
     
 } catch (Exception $e) {
     // Log error for debugging
-    error_log("Eye tracking save error: " . $e->getMessage());
-    error_log("Stack trace: " . $e->getTraceAsString());
-    error_log("Request data: " . json_encode($_POST ?? json_decode(file_get_contents('php://input'), true) ?? []));
+    $errorDetails = [
+        'message' => $e->getMessage(),
+        'file' => $e->getFile(),
+        'line' => $e->getLine(),
+        'trace' => $e->getTraceAsString(),
+        'request_data' => json_decode(file_get_contents('php://input'), true) ?? []
+    ];
+    
+    error_log("Eye tracking save error: " . json_encode($errorDetails, JSON_PRETTY_PRINT));
     
     http_response_code(500);
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage()
+        'error' => $e->getMessage(),
+        'details' => $errorDetails // Include details in response for debugging
     ]);
 }
 
