@@ -1742,6 +1742,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php include 'includes/eye-tracking-init.php'; ?>
 </head>
 <body class="bg-gray-50">
+    <!-- WebSocket Eye Tracking Widget -->
+    <div id="eye-tracking-widget" class="fixed top-20 right-4 z-50 bg-black rounded-lg shadow-xl border border-gray-700 p-4 w-80" style="display: none;">
+        <h3 class="text-sm font-semibold text-white mb-3 flex items-center justify-between cursor-move">
+            <span>Eye Tracking</span>
+            <span id="tracking-status-indicator" class="flex items-center gap-2">
+                <span class="relative flex h-3 w-3 bg-gray-500 rounded-full"></span>
+                <span class="text-xs text-gray-300 font-medium">Initializing...</span>
+            </span>
+        </h3>
+        <div class="space-y-3">
+            <div class="flex justify-between items-center text-xs">
+                <span class="text-gray-300">Focused:</span>
+                <span id="focused-time" class="font-medium text-green-400">0s</span>
+            </div>
+            <div class="flex justify-between items-center text-xs">
+                <span class="text-gray-300">Unfocused:</span>
+                <span id="unfocused-time" class="font-medium text-red-400">0s</span>
+            </div>
+            <div class="flex justify-between items-center text-xs">
+                <span class="text-gray-300">Total:</span>
+                <span id="session-time" class="font-medium text-blue-400">0s</span>
+            </div>
+            <div class="mt-2">
+                <div class="flex justify-between items-center mb-1 text-xs">
+                    <span class="text-gray-300">Focus:</span>
+                    <span id="focus-percentage" class="font-medium text-white">0%</span>
+                </div>
+                <div class="w-full bg-gray-700 rounded-full h-2">
+                    <div id="focus-progress-bar" class="bg-gray-500 h-2 rounded-full transition-all duration-300" style="width: 0%;"></div>
+                </div>
+            </div>
+            <div id="current-focus-status" class="mt-3 p-2 bg-gray-900 rounded text-center">
+                <span class="text-xs font-medium text-gray-200">Initializing...</span>
+            </div>
+        </div>
+    </div>
+    
     <!-- Top Navigation Bar -->
     <nav class="fixed top-0 left-0 right-0 h-16 bg-white shadow-md z-30 flex items-center justify-between px-4">
         <!-- Left side - Menu toggle and title -->
@@ -1989,11 +2026,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 } else {
                                     // Regular section completion - normalize ID for comparison
                                     $normalized_sec_id = (string)$section['id'];
-                                    $section_completed = in_array($normalized_sec_id, $completed_sections);
+                                    // Ensure completed_sections is an array and all IDs are normalized strings
+                                    $section_completed = !empty($completed_sections) && is_array($completed_sections) && in_array($normalized_sec_id, $completed_sections);
                                 }
                                 
                                 // Compare section IDs (handle both string and int)
                                 $is_active = (string)$selected_section_id === (string)$section['id'];
+                                
+                                // Debug: Log section completion status for troubleshooting
+                                if (isset($_GET['debug']) && $_GET['debug'] === '1') {
+                                    error_log("Section ID: " . $section['id'] . " (normalized: " . (string)$section['id'] . ")");
+                                    error_log("Completed sections: " . json_encode($completed_sections));
+                                    error_log("Is completed: " . ($section_completed ? 'true' : 'false'));
+                                }
                             ?>
                             <a href="?module_id=<?php echo $selected_module_id; ?>&section_id=<?php echo urlencode($section['id']); ?>" 
                                class="section-item flex items-center px-4 py-2.5 hover:bg-gray-100 transition-colors <?php echo $is_active ? 'active bg-blue-50' : ''; ?> <?php echo $is_checkpoint ? 'checkpoint-section' : ''; ?>">
@@ -3735,8 +3780,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Update focus status
                 if (data.is_focused !== undefined) {
                     const status = data.is_focused ? '✅ Currently Focused' : '⚠️ Currently Unfocused';
-                    const bgColor = data.is_focused ? 'bg-green-100' : 'bg-red-100';
-                    const textColor = data.is_focused ? 'text-green-700' : 'text-red-700';
+                    const bgColor = data.is_focused ? 'bg-green-900' : 'bg-red-900';
+                    const textColor = data.is_focused ? 'text-green-300' : 'text-red-300';
                     
                     // Add gaze direction indicator
                     let gazeIndicator = '';
@@ -3753,7 +3798,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             'distracted': '💭 Distracted',
                             'error': '⚠️ Detection error'
                         };
-                        gazeIndicator = `<br><span class="text-xs">${gazeMap[data.gaze_direction] || data.gaze_direction}</span>`;
+                        gazeIndicator = `<br><span class="text-xs text-gray-300">${gazeMap[data.gaze_direction] || data.gaze_direction}</span>`;
                     }
                     
                     currentStatusEl.className = `mt-3 p-2 ${bgColor} rounded text-center`;
@@ -3807,14 +3852,14 @@ document.addEventListener('DOMContentLoaded', function() {
                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                             <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
                         </span>
-                        <span class="text-xs text-green-600 font-medium">Active</span>
+                        <span class="text-xs text-green-400 font-medium">Active</span>
                     `;
                     widget.style.display = 'block';
                 } else {
                     console.log('❌ Disconnected from WebSocket eye tracking server');
                     statusIndicator.innerHTML = `
                         <span class="relative flex h-3 w-3 bg-red-500 rounded-full"></span>
-                        <span class="text-xs text-red-600 font-medium">Disconnected</span>
+                        <span class="text-xs text-red-400 font-medium">Disconnected</span>
                     `;
                 }
             },
