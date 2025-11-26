@@ -138,17 +138,30 @@ class ClientSideEyeTracking {
                 
                 <!-- Stats -->
                 <div class="space-y-1 text-xs text-gray-300">
-                    <div class="flex justify-between text-xs">
+                    <div class="flex justify-between">
                         <span>Status:</span>
                         <span id="focus-status" class="font-semibold text-green-400">Focused</span>
                     </div>
-                    <div class="flex justify-between text-xs">
-                        <span>Time:</span>
+                    <div class="flex justify-between">
+                        <span>Session:</span>
                         <span id="session-time" class="font-semibold">0s</span>
                     </div>
-                    <div class="flex justify-between text-xs">
-                        <span>Focus:</span>
-                        <span id="focus-rate" class="font-semibold text-blue-400">100%</span>
+                    <div class="flex justify-between">
+                        <span>Focused:</span>
+                        <span id="focused-time" class="font-semibold text-green-400">0s</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Unfocused:</span>
+                        <span id="unfocused-time" class="font-semibold text-red-400">0s</span>
+                    </div>
+                    <div class="mt-2">
+                        <div class="flex justify-between mb-1">
+                            <span>Focus:</span>
+                            <span id="focus-rate" class="font-semibold text-blue-400">100%</span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-1.5">
+                            <div id="focus-progress-bar" class="bg-blue-400 h-1.5 rounded-full transition-all" style="width: 100%"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -329,6 +342,12 @@ class ClientSideEyeTracking {
         document.getElementById('focused-time').textContent = `${Math.floor(currentFocusedTime)}s`;
         document.getElementById('unfocused-time').textContent = `${Math.floor(currentUnfocusedTime)}s`;
         document.getElementById('focus-rate').textContent = `${focusRate}%`;
+
+        // Update progress bar
+        const progressBar = document.getElementById('focus-progress-bar');
+        if (progressBar) {
+            progressBar.style.width = `${focusRate}%`;
+        }
 
         const statusElement = document.getElementById('focus-status');
         statusElement.textContent = this.isFocused ? 'Focused' : 'Unfocused';
