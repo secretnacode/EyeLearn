@@ -112,7 +112,7 @@ class ClientSideEyeTracking {
         // Create container
         const container = document.createElement('div');
         container.id = 'client-eye-tracking-container';
-        container.className = 'fixed top-4 right-4 z-50 bg-gray-900 rounded-lg shadow-2xl overflow-hidden';
+        container.className = 'fixed top-20 right-4 z-50 bg-gray-900 rounded-lg shadow-2xl overflow-hidden';
         container.style.width = '180px'; // Compact size
 
         container.innerHTML = `
