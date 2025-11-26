@@ -28,6 +28,7 @@ class ClientSideEyeTracking {
         this.focusedTime = 0;
         this.unfocusedTime = 0;
         this.lastFocusChangeTime = null;
+        this.lastSaveTime = null; // Track when we last saved to avoid double counting
 
         // Configuration
         this.updateInterval = null;
@@ -179,8 +180,9 @@ class ClientSideEyeTracking {
         if (!container) {
             container = document.createElement('div');
             container.id = 'eye-tracking-container';
-            container.className = 'fixed top-16 right-4 z-40 bg-black rounded-lg shadow-xl border border-gray-700 p-2 w-56';
+            container.className = 'fixed top-16 right-4 z-50 bg-black rounded-lg shadow-xl border border-gray-700 p-2 w-56';
             container.style.transition = 'all 0.3s ease';
+            container.style.pointerEvents = 'auto'; // Ensure widget doesn't block content
             document.body.appendChild(container);
             
             // Make draggable
@@ -236,15 +238,15 @@ class ClientSideEyeTracking {
                 </div>
                 <div class="space-y-1 text-xs">
                     <div class="flex justify-between items-center">
-                        <span class="text-gray-400">F:</span>
+                        <span class="text-gray-400">Focused:</span>
                         <span id="eye-tracking-focused" class="font-medium text-green-400">0s</span>
                     </div>
                     <div class="flex justify-between items-center">
-                        <span class="text-gray-400">U:</span>
+                        <span class="text-gray-400">Unfocused:</span>
                         <span id="eye-tracking-unfocused" class="font-medium text-red-400">0s</span>
                     </div>
                     <div class="flex justify-between items-center">
-                        <span class="text-gray-400">T:</span>
+                        <span class="text-gray-400">Total:</span>
                         <span id="eye-tracking-total" class="font-medium text-blue-400">0s</span>
                     </div>
                 </div>
@@ -376,8 +378,16 @@ class ClientSideEyeTracking {
         this.isTracking = true;
         this.startTime = Date.now();
         this.lastFocusChangeTime = this.startTime;
+        this.lastSaveTime = this.startTime; // Initialize last save time
+        
+        // Reset all time counters to zero for new session
+        this.focusedTime = 0;
+        this.unfocusedTime = 0;
+        
+        // Update UI immediately to show zeros
+        this.updateUI();
 
-        console.log('🎬 Starting eye tracking detection...');
+        console.log('🎬 Starting eye tracking detection - session times reset to zero');
 
         // Start detection loop
         this.detectionInterval = setInterval(() => {
@@ -846,27 +856,41 @@ class ClientSideEyeTracking {
 
     // FIX #3: Save tracking data with proper headers and JSON
     async saveTrackingData() {
-        const now = Date.now();
-        const currentDuration = (now - this.lastFocusChangeTime) / 1000;
-
-        // Add current session time
-        let focusedTime = this.focusedTime;
-        let unfocusedTime = this.unfocusedTime;
-
-        if (this.isFocused) {
-            focusedTime += currentDuration;
-        } else {
-            unfocusedTime += currentDuration;
+        if (!this.lastSaveTime) {
+            this.lastSaveTime = Date.now();
+            return; // Skip first save, wait for actual data
         }
 
-        const totalTime = focusedTime + unfocusedTime;
+        const now = Date.now();
+        
+        // Calculate time in current state since last focus change
+        const timeInCurrentState = this.lastFocusChangeTime 
+            ? (now - this.lastFocusChangeTime) / 1000 
+            : 0;
+
+        // Add current state time to accumulated times
+        let totalFocusedTime = this.focusedTime;
+        let totalUnfocusedTime = this.unfocusedTime;
+
+        if (this.isFocused) {
+            totalFocusedTime += timeInCurrentState;
+        } else {
+            totalUnfocusedTime += timeInCurrentState;
+        }
+
+        const totalTime = totalFocusedTime + totalUnfocusedTime;
+
+        // Only save if we have meaningful time (> 1 second)
+        if (totalTime < 1) {
+            return;
+        }
 
         const data = {
             user_id: this.userId,
             module_id: this.moduleId,
-            section_id: this.sectionId,
-            focused_time: Math.round(focusedTime),
-            unfocused_time: Math.round(unfocusedTime),
+            section_id: this.sectionId || 0,
+            focused_time: Math.round(totalFocusedTime),
+            unfocused_time: Math.round(totalUnfocusedTime),
             total_time: Math.round(totalTime)
         };
 
@@ -888,7 +912,17 @@ class ClientSideEyeTracking {
             const result = await response.json();
 
             if (result.success) {
-                console.log('✅ Tracking data saved:', result);
+                console.log('✅ Tracking data saved:', {
+                    focused: Math.round(totalFocusedTime) + 's',
+                    unfocused: Math.round(totalUnfocusedTime) + 's',
+                    total: Math.round(totalTime) + 's'
+                });
+                
+                // Reset accumulated times after successful save
+                // The time in current state will be tracked from lastFocusChangeTime
+                this.focusedTime = 0;
+                this.unfocusedTime = 0;
+                this.lastSaveTime = now;
             } else {
                 console.error('❌ Save failed:', result.error);
             }

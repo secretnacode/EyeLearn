@@ -76,6 +76,33 @@ if (!$selected_module_id || $selected_module_id <= 0) {
     exit;
 }
 
+// Update last_accessed timestamp when user views module content
+// Ensure last_accessed column exists
+$lastAccessedColumn = $conn->query("SHOW COLUMNS FROM user_module_progress LIKE 'last_accessed'");
+if ($lastAccessedColumn && $lastAccessedColumn->num_rows === 0) {
+    $conn->query("
+        ALTER TABLE user_module_progress 
+        ADD COLUMN last_accessed TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP 
+        ON UPDATE CURRENT_TIMESTAMP
+    ");
+}
+if ($lastAccessedColumn instanceof mysqli_result) {
+    $lastAccessedColumn->free();
+}
+
+// Update last_accessed timestamp
+$updateLastAccessed = $conn->prepare("
+    INSERT INTO user_module_progress 
+        (user_id, module_id, completed_sections, last_accessed) 
+    VALUES 
+        (?, ?, '[]', NOW())
+    ON DUPLICATE KEY UPDATE 
+        last_accessed = NOW()
+");
+$updateLastAccessed->bind_param("ii", $user_id, $selected_module_id);
+$updateLastAccessed->execute();
+$updateLastAccessed->close();
+
 // Handle retake requests before loading heavy data
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_retake'])) {
     $contentType = isset($_SERVER["CONTENT_TYPE"]) ? trim($_SERVER["CONTENT_TYPE"]) : '';
@@ -1970,7 +1997,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </nav>
     
-    <div class="flex min-h-screen" style="padding-top: calc(4rem + 22rem);">
+    <div class="flex min-h-screen pt-16">
         <!-- Mobile backdrop -->
         <div id="backdrop" class="backdrop"></div>
         
