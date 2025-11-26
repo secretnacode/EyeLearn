@@ -315,11 +315,17 @@ class ClientSideEyeTracking {
                 }
             } else {
                 // No face detected - consider as unfocused
+                const now = Date.now();
                 if (this.isFocused) {
-                    const now = Date.now();
+                    // Transitioning from focused to unfocused
                     const duration = (now - this.lastFocusChangeTime) / 1000;
                     this.focusedTime += duration;
                     this.isFocused = false;
+                    this.lastFocusChangeTime = now;
+                } else if (this.lastFocusChangeTime) {
+                    // Already unfocused, continue tracking unfocused time
+                    const duration = (now - this.lastFocusChangeTime) / 1000;
+                    this.unfocusedTime += duration;
                     this.lastFocusChangeTime = now;
                 }
             }
@@ -409,8 +415,10 @@ class ClientSideEyeTracking {
         const DROWSY_MS = 1000; // > 1s continuous closure => drowsy
 
         if (ear == null) {
-            // If we can't compute EAR, don't change drowsiness aggressively
-            return true;
+            // If we can't compute EAR, it might mean eyes are covered or not visible
+            // Be conservative: if we can't detect eyes properly, assume not awake
+            // This helps detect covered eyes scenarios
+            return false;
         }
 
         let eyeClosed = state.eyeClosed;
@@ -479,10 +487,13 @@ class ClientSideEyeTracking {
         const rightInner = keypoints[263];
 
         if (!leftOuter || !leftInner || !rightOuter || !rightInner) {
+            // CRITICAL FIX: When eye landmarks are missing (eyes covered/not visible),
+            // we should return false for all metrics, not true!
+            // This ensures covered eyes are detected as unfocused.
             return {
-                horizontalCentered: true,
-                verticalCentered: true,
-                eyesAligned: true
+                horizontalCentered: false,
+                verticalCentered: false,
+                eyesAligned: false
             };
         }
 
@@ -491,33 +502,49 @@ class ClientSideEyeTracking {
 
         if (leftWidth < 0.01 || rightWidth < 0.01) {
             // Eyes too small/closed to trust gaze; treat as not centered
+            // FIX: All metrics should be false when eyes are closed/covered
             return {
                 horizontalCentered: false,
-                verticalCentered: true,
-                eyesAligned: true
+                verticalCentered: false,
+                eyesAligned: false
             };
         }
 
         // Prefer true iris landmarks if available (MediaPipe refine_landmarks-style)
         let leftIrisCenter = null;
         let rightIrisCenter = null;
+        let hasRealIrisData = false;
+        
         if (keypoints.length > 473) {
             leftIrisCenter = keypoints[468];
             rightIrisCenter = keypoints[473];
+            // Check if iris landmarks are actually valid (not default/zero values)
+            if (leftIrisCenter && rightIrisCenter && 
+                (leftIrisCenter.x !== 0 || leftIrisCenter.y !== 0) &&
+                (rightIrisCenter.x !== 0 || rightIrisCenter.y !== 0)) {
+                hasRealIrisData = true;
+            }
         }
 
         // Fallback: approximate iris center using central eyelid point if iris not present
-        if (!leftIrisCenter) {
-            leftIrisCenter = keypoints[159] || {
-                x: (leftOuter.x + leftInner.x) / 2,
-                y: (leftOuter.y + leftInner.y) / 2
-            };
-        }
-        if (!rightIrisCenter) {
-            rightIrisCenter = keypoints[386] || {
-                x: (rightOuter.x + rightInner.x) / 2,
-                y: (rightOuter.y + rightInner.y) / 2
-            };
+        // BUT: If we don't have real iris data, this is less reliable (eyes might be covered)
+        if (!hasRealIrisData) {
+            // If we can't detect real iris landmarks, eyes might be covered
+            // Use fallback but mark as less reliable
+            if (!leftIrisCenter) {
+                leftIrisCenter = keypoints[159] || {
+                    x: (leftOuter.x + leftInner.x) / 2,
+                    y: (leftOuter.y + leftInner.y) / 2
+                };
+            }
+            if (!rightIrisCenter) {
+                rightIrisCenter = keypoints[386] || {
+                    x: (rightOuter.x + rightInner.x) / 2,
+                    y: (rightOuter.y + rightInner.y) / 2
+                };
+            }
+            // When using fallback (no real iris data), be more conservative
+            // This helps detect covered eyes where iris landmarks aren't available
         }
 
         const leftIrisRatio = (leftIrisCenter.x - leftOuter.x) / leftWidth;
@@ -542,13 +569,17 @@ class ClientSideEyeTracking {
             }
         }
 
+        // If we don't have real iris data (using fallback), be more strict
+        // This helps detect covered eyes where iris detection fails
+        const irisTolerance = hasRealIrisData ? 0.3 : 0.25; // Stricter when using fallback
+        
         const horizontalCentered =
-            leftIrisRatio > 0.3 && leftIrisRatio < 0.7 &&
-            rightIrisRatio > 0.3 && rightIrisRatio < 0.7;
+            leftIrisRatio > irisTolerance && leftIrisRatio < (1 - irisTolerance) &&
+            rightIrisRatio > irisTolerance && rightIrisRatio < (1 - irisTolerance);
 
         const verticalCentered =
-            leftIrisVertical > 0.3 && leftIrisVertical < 0.7 &&
-            rightIrisVertical > 0.3 && rightIrisVertical < 0.7;
+            leftIrisVertical > irisTolerance && leftIrisVertical < (1 - irisTolerance) &&
+            rightIrisVertical > irisTolerance && rightIrisVertical < (1 - irisTolerance);
 
         const eyesAligned = Math.abs(leftIrisRatio - rightIrisRatio) < 0.3;
 

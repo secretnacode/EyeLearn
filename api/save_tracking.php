@@ -91,11 +91,12 @@ try {
     $stmt->close();
     
     if ($existingSession) {
-        // Update existing session
+        // Update existing session - ADD to existing values instead of replacing
+        // This ensures multiple sessions in the same day are accumulated correctly
         $updateQuery = "UPDATE eye_tracking_sessions 
-                        SET focused_time_seconds = ?,
-                            unfocused_time_seconds = ?,
-                            total_time_seconds = ?,
+                        SET focused_time_seconds = COALESCE(focused_time_seconds, 0) + ?,
+                            unfocused_time_seconds = COALESCE(unfocused_time_seconds, 0) + ?,
+                            total_time_seconds = COALESCE(total_time_seconds, 0) + ?,
                             last_updated = NOW()
                         WHERE id = ?";
         

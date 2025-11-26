@@ -539,18 +539,9 @@ $start_retake = isset($_GET['start_retake']) && $_GET['start_retake'] == '1';
 // Always show overview if quiz is completed, unless user explicitly wants to start a pending retake
 $shouldShowQuizOverview = $quiz_was_completed && !($has_pending_retake && $start_retake);
 
-// Calculate completion percentage (placeholder)
-$completion_percentage = 60;
-
-// Close database connection
+// Initialize completion percentage - will be calculated after getting user progress
+$completion_percentage = 0;
 $is_module_completed = false;
-
-// Check if this is the last section and all previous sections are completed
-if ($selected_section && $current_section_index === count($all_sections) - 1) {
-    // For now just set it to true since we don't have section completion tracking yet
-    // TODO: Add proper section completion tracking
-    $is_module_completed = true;
-}
 
 // Get user's progress for this module
 try {
@@ -565,7 +556,13 @@ try {
     $completed_sections = [];
     if ($progress_result->num_rows > 0) {
         $progress_data = $progress_result->fetch_assoc();
-        $completed_sections = json_decode($progress_data['completed_sections'], true) ?? [];
+        $decoded_sections = json_decode($progress_data['completed_sections'], true);
+        // Ensure we have an array and normalize section IDs to strings for consistent comparison
+        $completed_sections = is_array($decoded_sections) ? $decoded_sections : [];
+        // Normalize all section IDs to strings for consistent comparison
+        $completed_sections = array_map(function($id) {
+            return (string)$id;
+        }, $completed_sections);
     } else {
         // Create progress record if doesn't exist
         $stmt = $conn->prepare("INSERT INTO user_module_progress (user_id, module_id, completed_sections) VALUES (?, ?, '[]')");
@@ -573,10 +570,12 @@ try {
         $stmt->execute();
     }
 
-    // Handle section completion
-    if (isset($_POST['section_completed'])) {
-        if (!in_array($selected_section_id, $completed_sections)) {
-            $completed_sections[] = $selected_section_id;
+    // Handle section completion (non-AJAX POST - redirects)
+    if (isset($_POST['section_completed']) && !isset($_POST['section_id'])) {
+        // Normalize section ID to string for consistent storage
+        $normalized_section_id = (string)$selected_section_id;
+        if (!in_array($normalized_section_id, $completed_sections)) {
+            $completed_sections[] = $normalized_section_id;
             $completed_json = json_encode($completed_sections);
             
             $update_stmt = $conn->prepare("UPDATE user_module_progress 
@@ -584,37 +583,41 @@ try {
                                          WHERE user_id = ? AND module_id = ?");
             if ($update_stmt) {
                 $update_stmt->bind_param("sii", $completed_json, $user_id, $selected_module_id);
-                $update_stmt->execute();
-                
-                // Redirect to same page to show quiz
-                header("Location: " . $_SERVER['PHP_SELF'] . "?module_id=" . $selected_module_id . "&section_id=" . $selected_section_id);
-                exit;
+                if ($update_stmt->execute()) {
+                    // Redirect to same page to show quiz
+                    header("Location: " . $_SERVER['PHP_SELF'] . "?module_id=" . $selected_module_id . "&section_id=" . urlencode($selected_section_id));
+                    exit;
+                } else {
+                    error_log("Failed to update progress: " . $update_stmt->error);
+                }
             }
         }
     }
 
-    // Update these variables
-    $is_section_completed = in_array($selected_section_id, $completed_sections);
+    // Update these variables - normalize section ID for comparison
+    $normalized_selected_id = (string)$selected_section_id;
+    $is_section_completed = in_array($normalized_selected_id, $completed_sections);
     $can_access_quiz = $is_section_completed;
 } catch (mysqli_sql_exception $e) {
     // If table doesn't exist, set default values
     $completed_sections = [];
+    error_log("Error getting user progress: " . $e->getMessage());
 }
 
-// Update quiz access check logic
-$is_section_completed = in_array($selected_section_id, $completed_sections);
+// Update quiz access check logic - normalize section ID for comparison
+$normalized_selected_id = $selected_section_id ? (string)$selected_section_id : null;
+$is_section_completed = $normalized_selected_id && in_array($normalized_selected_id, $completed_sections);
 $can_access_quiz = $is_section_completed || isset($_POST['section_completed']);
 
 // In the section completion POST handler section, add logging
 if (isset($_POST['section_completed'])) {
     error_log("Section completion requested for section ID: " . $selected_section_id);
+    error_log("Normalized section ID: " . $normalized_selected_id);
     error_log("Current completed sections: " . json_encode($completed_sections));
 }
 
 // Update the section completion check logic - place this after getting user progress
-$is_section_completed = in_array($selected_section_id, $completed_sections);
 $needs_completion = $selected_section && !$is_section_completed;
-$can_access_quiz = $selected_section && ($is_section_completed || isset($_POST['section_completed']));
 
 // Calculate completion percentage with error handling
 // Exclude checkpoint quizzes from progress calculation - they are optional assessments
@@ -631,8 +634,9 @@ foreach ($all_sections as $section) {
     // Count regular sections only
     $total_sections++;
     
-    // Check if regular section is completed
-    $is_completed = in_array($section['id'], $completed_sections);
+    // Check if regular section is completed - normalize section ID for comparison
+    $normalized_section_id = (string)$section['id'];
+    $is_completed = in_array($normalized_section_id, $completed_sections);
     
     if ($is_completed) {
         $completed_count++;
@@ -650,12 +654,15 @@ if ($completion_percentage > 100) {
 $is_module_completed = ($completed_count === $total_sections && $completion_percentage >= 100);
 
 // Add AJAX endpoint for updating progress
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['section_completed'])) {
-    $section_id = intval($_POST['section_id'] ?? 0);
-    $response = ['success' => false, 'completion' => 0];
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['section_completed']) && isset($_POST['section_id'])) {
+    // Get section_id from POST (can be string for checkpoint quizzes or int for regular sections)
+    $section_id = $_POST['section_id'];
+    $normalized_section_id = (string)$section_id;
+    $response = ['success' => false, 'completion' => 0, 'error' => ''];
 
-    if ($section_id && !in_array($section_id, $completed_sections)) {
-        $completed_sections[] = $section_id;
+    // Check if section is already completed
+    if (!in_array($normalized_section_id, $completed_sections)) {
+        $completed_sections[] = $normalized_section_id;
         $completed_json = json_encode($completed_sections);
 
         $stmt = $conn->prepare("UPDATE user_module_progress 
@@ -673,14 +680,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['section_completed']))
                         continue;
                     }
                     $regular_total++;
-                    if (in_array($section['id'], $completed_sections)) {
+                    $normalized_sec_id = (string)$section['id'];
+                    if (in_array($normalized_sec_id, $completed_sections)) {
                         $regular_completed++;
                     }
                 }
                 $response['success'] = true;
                 $response['completion'] = $regular_total > 0 ? round(($regular_completed / $regular_total) * 100) : 0;
+                $response['completed_count'] = $regular_completed;
+                $response['total_count'] = $regular_total;
+            } else {
+                $response['error'] = 'Database update failed: ' . $stmt->error;
+                error_log("Progress update error: " . $stmt->error);
+            }
+            $stmt->close();
+        } else {
+            $response['error'] = 'Failed to prepare statement: ' . $conn->error;
+            error_log("Progress prepare error: " . $conn->error);
+        }
+    } else {
+        // Section already completed, just recalculate and return current progress
+        $regular_total = 0;
+        $regular_completed = 0;
+        foreach ($all_sections as $section) {
+            if (isset($section['is_checkpoint_quiz']) && $section['is_checkpoint_quiz']) {
+                continue;
+            }
+            $regular_total++;
+            $normalized_sec_id = (string)$section['id'];
+            if (in_array($normalized_sec_id, $completed_sections)) {
+                $regular_completed++;
             }
         }
+        $response['success'] = true;
+        $response['completion'] = $regular_total > 0 ? round(($regular_completed / $regular_total) * 100) : 0;
+        $response['message'] = 'Section already completed';
     }
 
     header('Content-Type: application/json');
@@ -1945,8 +1979,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         $check_completion->close();
                                     }
                                 } else {
-                                    // Regular section completion
-                                    $section_completed = in_array($section['id'], $completed_sections);
+                                    // Regular section completion - normalize ID for comparison
+                                    $normalized_sec_id = (string)$section['id'];
+                                    $section_completed = in_array($normalized_sec_id, $completed_sections);
                                 }
                                 
                                 // Compare section IDs (handle both string and int)
@@ -2419,6 +2454,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                        // Update URL without page reload
                                        window.history.pushState({}, '', url);
                                        
+                                       // Update sidebar active state
+                                       updateSidebarActiveState(url);
+                                       
+                                       // Extract and update progress from new content if available
+                                       const newProgressBar = tempDiv.querySelector('.progress-bar');
+                                       const newProgressText = tempDiv.querySelector('.text-xs.font-medium.text-gray-700');
+                                       if (newProgressBar) {
+                                           const newWidth = newProgressBar.style.width || newProgressBar.getAttribute('style')?.match(/width:\s*(\d+)%/)?.[1];
+                                           if (newWidth) {
+                                               updateSidebarProgress(parseInt(newWidth));
+                                           }
+                                       }
+                                       
                                        // Re-initialize any scripts that need to run
                                        initializePageScripts();
                                        
@@ -2434,6 +2482,138 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                }
                            }
 
+                           // Update sidebar to reflect active section
+                           function updateSidebarActiveState(url) {
+                               try {
+                                   // Handle both relative URLs (starting with ?) and full URLs
+                                   let queryString = '';
+                                   if (url.startsWith('?')) {
+                                       // Relative URL starting with ?
+                                       queryString = url.substring(1);
+                                   } else if (url.includes('?')) {
+                                       // Full URL with query string
+                                       queryString = url.split('?')[1];
+                                   } else {
+                                       // Try to extract from current URL if url is just a path
+                                       const urlObj = new URL(url, window.location.origin);
+                                       queryString = urlObj.search.substring(1);
+                                   }
+                                   
+                                   // Extract section_id from URL
+                                   const urlParams = new URLSearchParams(queryString);
+                                   const sectionId = urlParams.get('section_id');
+                                   const finalQuiz = urlParams.get('final_quiz');
+                                   
+                                   if (!sectionId && !finalQuiz) {
+                                       console.warn('⚠️ No section_id or final_quiz found in URL');
+                                       return;
+                                   }
+                                   
+                                   // Remove active class from all sidebar items
+                                   document.querySelectorAll('.section-item').forEach(item => {
+                                       item.classList.remove('active', 'bg-blue-50');
+                                       // Also remove font-medium and text-blue-700 from text span
+                                       const textSpan = item.querySelector('span.text-sm');
+                                       if (textSpan) {
+                                           textSpan.classList.remove('font-medium', 'text-blue-700');
+                                           textSpan.classList.add('text-gray-700');
+                                       }
+                                   });
+                                   
+                                   // Remove active from final quiz link if exists
+                                   const finalQuizLink = document.querySelector('a[href*="final_quiz"]');
+                                   if (finalQuizLink) {
+                                       finalQuizLink.classList.remove('active', 'bg-blue-50');
+                                   }
+                                   
+                                   // Find and activate the new section
+                                   if (finalQuiz) {
+                                       // Activate final quiz link
+                                       if (finalQuizLink) {
+                                           finalQuizLink.classList.add('active', 'bg-blue-50');
+                                           finalQuizLink.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                       }
+                                   } else if (sectionId) {
+                                       // Find the sidebar link that matches this section_id
+                                       const sidebarLinks = document.querySelectorAll('.section-item');
+                                       let foundLink = null;
+                                       
+                                       sidebarLinks.forEach(link => {
+                                           const href = link.getAttribute('href');
+                                           if (href && href.includes('section_id=' + encodeURIComponent(sectionId))) {
+                                               foundLink = link;
+                                           }
+                                       });
+                                       
+                                       if (foundLink) {
+                                           // Add active classes
+                                           foundLink.classList.add('active', 'bg-blue-50');
+                                           
+                                           // Update text styling
+                                           const textSpan = foundLink.querySelector('span.text-sm');
+                                           if (textSpan) {
+                                               textSpan.classList.remove('text-gray-700');
+                                               textSpan.classList.add('font-medium', 'text-blue-700');
+                                           }
+                                           
+                                           // Expand parent part section if collapsed
+                                           const partSections = foundLink.closest('.part-sections');
+                                           if (partSections) {
+                                               const partHeader = partSections.previousElementSibling;
+                                               if (partHeader && partHeader.classList.contains('part-header')) {
+                                                   const isExpanded = partHeader.getAttribute('aria-expanded') === 'true';
+                                                   if (!isExpanded) {
+                                                       // Expand the part section
+                                                       partHeader.setAttribute('aria-expanded', 'true');
+                                                       partSections.style.display = 'block';
+                                                   }
+                                               }
+                                           }
+                                           
+                                           // Scroll into view
+                                           setTimeout(() => {
+                                               foundLink.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                           }, 100);
+                                           
+                                           console.log('✅ Sidebar updated: Section', sectionId, 'is now active');
+                                       } else {
+                                           console.warn('⚠️ Could not find sidebar link for section_id:', sectionId);
+                                       }
+                                   }
+                               } catch (error) {
+                                   console.error('❌ Error updating sidebar active state:', error);
+                               }
+                           }
+                           
+                           // Update sidebar progress bar
+                           function updateSidebarProgress(percentage) {
+                               try {
+                                   // Update progress bar width
+                                   const progressBar = document.querySelector('.progress-bar');
+                                   if (progressBar) {
+                                       progressBar.style.width = percentage + '%';
+                                   }
+                                   
+                                   // Update progress percentage text
+                                   const progressText = document.querySelector('.text-xs.font-medium.text-gray-700');
+                                   if (progressText) {
+                                       progressText.textContent = percentage + '%';
+                                   }
+                                   
+                                   // Also update any other progress text elements
+                                   const allProgressTexts = document.querySelectorAll('.text-xs.font-medium.text-gray-700');
+                                   allProgressTexts.forEach(el => {
+                                       if (el.textContent.includes('%')) {
+                                           el.textContent = percentage + '%';
+                                       }
+                                   });
+                                   
+                                   console.log('✅ Sidebar progress updated to', percentage + '%');
+                               } catch (error) {
+                                   console.error('❌ Error updating sidebar progress:', error);
+                               }
+                           }
+                           
                            // Initialize scripts after AJAX content load
                            function initializePageScripts() {
                                // Re-attach event listeners for the Next button
@@ -2485,6 +2665,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                    })
                                    .then(res => res.json())
                                    .then(data => {
+                                       // Update sidebar progress bar if completion data is returned
+                                       if (data.success && data.completion !== undefined) {
+                                           updateSidebarProgress(data.completion);
+                                       }
                                        // FIX #2: After marking complete, use AJAX to load next section
                                        loadContent(nextUrl);
                                    })
@@ -3656,10 +3840,40 @@ document.addEventListener('DOMContentLoaded', function() {
     // Start WebSocket eye tracking
     initWebSocketEyeTracking();
     
-    // Cleanup on page unload
+    // Cleanup on page unload - save final tracking data
     window.addEventListener('beforeunload', function() {
         if (webcamSocket) {
+            // Send stop_tracking event to save final data on server
+            if (webcamSocket.socket && webcamSocket.socket.connected) {
+                webcamSocket.socket.emit('stop_tracking');
+                // Give server a moment to save data (using sendBeacon for reliability)
+                navigator.sendBeacon && navigator.sendBeacon('/api/save_tracking', JSON.stringify({
+                    user_id: userId,
+                    module_id: moduleId,
+                    section_id: sectionId,
+                    focused_time: 0, // Server will use accumulated data
+                    unfocused_time: 0,
+                    total_time: 0
+                }));
+            }
             webcamSocket.disconnect();
+        }
+    });
+    
+    // Also save on visibility change (tab switch, minimize)
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden && webcamSocket && webcamSocket.socket && webcamSocket.socket.connected) {
+            // Save data when tab becomes hidden
+            webcamSocket.socket.emit('stop_tracking');
+            setTimeout(() => {
+                if (webcamSocket.socket && webcamSocket.socket.connected) {
+                    webcamSocket.socket.emit('start_tracking', {
+                        user_id: userId,
+                        module_id: moduleId,
+                        section_id: sectionId
+                    });
+                }
+            }, 100);
         }
     });
 });
