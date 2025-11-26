@@ -113,49 +113,41 @@ class ClientSideEyeTracking {
         const container = document.createElement('div');
         container.id = 'client-eye-tracking-container';
         container.className = 'fixed top-4 right-4 z-50 bg-gray-900 rounded-lg shadow-2xl overflow-hidden';
-        container.style.width = '220px'; // Reduced from 280px
+        container.style.width = '180px'; // Compact size
 
         container.innerHTML = `
-            <div class="bg-gradient-to-r from-blue-600 to-purple-600 px-3 py-2 flex items-center justify-between">
+            <div class="bg-gradient-to-r from-blue-600 to-purple-600 px-2 py-1 flex items-center justify-between">
                 <div class="flex items-center">
-                    <div class="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
-                    <span class="text-white text-xs font-semibold">Eye Tracking Active</span>
+                    <div class="w-2 h-2 bg-green-400 rounded-full mr-1 animate-pulse"></div>
+                    <span class="text-white text-xs font-semibold">Eye Tracking</span>
                 </div>
                 <button onclick="window.clientEyeTracker.toggleMinimize()" class="text-white hover:text-gray-200">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                     </svg>
                 </button>
             </div>
             
-            <div id="tracking-content" class="p-3">
+            <div id="tracking-content" class="p-2">
                 <!-- Live Camera Feed (visible) -->
                 <div class="relative mb-2">
-                    <video id="tracking-video" autoplay playsinline muted class="w-full rounded border-2 border-gray-700"></video>
+                    <video id="tracking-video" autoplay playsinline muted width="164" height="123" class="w-full rounded border-2 border-gray-700" style="background: #1f2937;"></video>
                     <!-- Face mesh overlay canvas -->
-                    <canvas id="tracking-canvas" width="204" height="153" class="absolute top-0 left-0 w-full h-full rounded pointer-events-none"></canvas>
+                    <canvas id="tracking-canvas" width="164" height="123" class="absolute top-0 left-0 w-full h-full rounded pointer-events-none"></canvas>
                 </div>
                 
                 <!-- Stats -->
                 <div class="space-y-1 text-xs text-gray-300">
-                    <div class="flex justify-between">
+                    <div class="flex justify-between text-xs">
                         <span>Status:</span>
                         <span id="focus-status" class="font-semibold text-green-400">Focused</span>
                     </div>
-                    <div class="flex justify-between">
-                        <span>Session Time:</span>
+                    <div class="flex justify-between text-xs">
+                        <span>Time:</span>
                         <span id="session-time" class="font-semibold">0s</span>
                     </div>
-                    <div class="flex justify-between">
-                        <span>Focused Time:</span>
-                        <span id="focused-time" class="font-semibold text-green-400">0s</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span>Unfocused Time:</span>
-                        <span id="unfocused-time" class="font-semibold text-red-400">0s</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span>Focus Rate:</span>
+                    <div class="flex justify-between text-xs">
+                        <span>Focus:</span>
                         <span id="focus-rate" class="font-semibold text-blue-400">100%</span>
                     </div>
                 </div>
@@ -264,12 +256,12 @@ class ClientSideEyeTracking {
         }
 
         // Draw status overlay text
-        ctx.font = 'bold 16px Arial';
+        ctx.font = 'bold 12px Arial';
         ctx.fillStyle = this.isFocused ? '#00ff00' : '#ff0000';
         ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 3;
-        ctx.strokeText(this.isFocused ? 'FOCUSED' : 'UNFOCUSED', 10, 25);
-        ctx.fillText(this.isFocused ? 'FOCUSED' : 'UNFOCUSED', 10, 25);
+        ctx.lineWidth = 2;
+        ctx.strokeText(this.isFocused ? 'FOCUSED' : 'UNFOCUSED', 5, 18);
+        ctx.fillText(this.isFocused ? 'FOCUSED' : 'UNFOCUSED', 5, 18);
     }
 
     calculateFocusState(prediction) {
