@@ -2520,6 +2520,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                    const tempDiv = document.createElement('div');
                                    tempDiv.innerHTML = html;
                                    
+                                   // Remove eye tracking initialization scripts from loaded content to prevent re-initialization
+                                   // These scripts should only run on initial page load, not on AJAX navigation
+                                   const eyeTrackingScripts = tempDiv.querySelectorAll('script[src*="eye-tracking"], script:not([src])');
+                                   eyeTrackingScripts.forEach(script => {
+                                       const scriptContent = script.textContent || script.innerHTML;
+                                       if (scriptContent.includes('ClientSideEyeTracking') || 
+                                           scriptContent.includes('clientEyeTracker') ||
+                                           scriptContent.includes('eye-tracking-init')) {
+                                           console.log('📹 Removing eye tracking init script from AJAX content to prevent re-initialization');
+                                           script.remove();
+                                       }
+                                   });
+                                   
                                    // Extract only the main-content area (preserve webcam container)
                                    const newMainContent = tempDiv.querySelector('#main-content');
                                    
@@ -2555,6 +2568,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                            }
                                        } catch (e) {
                                            // Ignore errors - checkmarks will update when sections are marked complete
+                                       }
+                                       
+                                       // Update eye tracking section ID if tracker exists (don't reinitialize)
+                                       try {
+                                           const urlParams = new URLSearchParams(url.split('?')[1] || url.substring(1));
+                                           const newSectionId = urlParams.get('section_id');
+                                           const newModuleId = urlParams.get('module_id');
+                                           
+                                           if (window.clientEyeTracker && window.clientEyeTracker.isInitialized) {
+                                               if (newModuleId && parseInt(newModuleId) !== window.clientEyeTracker.moduleId) {
+                                                   // Module changed - need to reinitialize (will happen via script in new content)
+                                                   console.log('📹 Module changed, eye tracking will reinitialize');
+                                               } else if (newSectionId && parseInt(newSectionId) !== window.clientEyeTracker.sectionId) {
+                                                   // Just update section ID
+                                                   console.log('📹 Updating eye tracking section ID to:', newSectionId);
+                                                   window.clientEyeTracker.updateSectionId(parseInt(newSectionId));
+                                               }
+                                           }
+                                       } catch (e) {
+                                           console.warn('⚠️ Error updating eye tracking section:', e);
                                        }
                                        
                                        // Re-initialize any scripts that need to run

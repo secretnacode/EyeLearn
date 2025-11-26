@@ -1050,25 +1050,34 @@ class ClientSideEyeTracking {
     }
 
     updateSectionId(newSectionId) {
-        if (newSectionId === this.sectionId) {
+        // Normalize section IDs for comparison (handle null, undefined, 0)
+        const currentSectionId = this.sectionId || null;
+        const normalizedNewSectionId = newSectionId && newSectionId > 0 ? newSectionId : null;
+        
+        if (normalizedNewSectionId === currentSectionId) {
             console.log('📹 Section ID unchanged, no update needed');
             return;
         }
         
-        console.log(`📹 Updating section ID from ${this.sectionId} to ${newSectionId}`);
+        console.log(`📹 Updating section ID from ${currentSectionId} to ${normalizedNewSectionId}`);
         
-        // Save current section's data before switching
-        this.saveTrackingData();
+        // Save current section's data before switching (only if we have meaningful data)
+        if (this.isTracking && (this.focusedTime > 0 || this.unfocusedTime > 0)) {
+            this.saveTrackingData();
+        }
         
-        // Reset session times for new section
+        // Reset session times for new section (but keep tracking running)
         this.focusedTime = 0;
         this.unfocusedTime = 0;
         this.startTime = Date.now();
         this.lastFocusChangeTime = Date.now();
         this.lastSaveTime = null;
         
+        // Reset focus history for new section
+        this.focusHistory = [];
+        
         // Update section ID
-        this.sectionId = newSectionId;
+        this.sectionId = normalizedNewSectionId;
         
         console.log('✅ Section ID updated, tracking continues for new section');
     }
