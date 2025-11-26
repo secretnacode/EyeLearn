@@ -955,10 +955,12 @@ class ClientSideEyeTracking {
             const result = await response.json();
 
             if (result.success) {
-                console.log('✅ Tracking data saved:', {
+                console.log('✅ Tracking data saved successfully:', {
+                    session_id: result.session_id,
                     focused: Math.round(totalFocusedTime) + 's',
                     unfocused: Math.round(totalUnfocusedTime) + 's',
-                    total: Math.round(totalTime) + 's'
+                    total: Math.round(totalTime) + 's',
+                    focus_percentage: result.data?.focus_percentage + '%'
                 });
                 
                 // Reset accumulated times after successful save
@@ -968,11 +970,12 @@ class ClientSideEyeTracking {
                 this.lastFocusChangeTime = now; // Reset to current time to avoid double-counting
                 this.lastSaveTime = now;
             } else {
-                console.error('❌ Save failed:', result.error);
+                console.error('❌ Save failed:', result.error, result.details);
             }
 
         } catch (error) {
             console.error('❌ Error saving tracking data:', error);
+            console.error('Request data was:', data);
         }
     }
 
@@ -1009,7 +1012,7 @@ class ClientSideEyeTracking {
         const data = {
             user_id: this.userId,
             module_id: this.moduleId,
-            section_id: this.sectionId || 0,
+            section_id: this.sectionId && this.sectionId > 0 ? this.sectionId : null, // Send null instead of 0
             focused_time: Math.round(totalFocusedTime),
             unfocused_time: Math.round(totalUnfocusedTime),
             total_time: Math.round(totalTime)

@@ -71,13 +71,16 @@ try {
     // Extract data
     $userId = (int)$data['user_id'];
     $moduleId = (int)$data['module_id'];
-    // Handle section_id: use NULL if 0 or not set (database allows NULL)
-    $sectionId = isset($data['section_id']) && $data['section_id'] && (int)$data['section_id'] > 0 
+    // Handle section_id: use NULL if null, 0, or not set (database allows NULL)
+    $sectionId = (isset($data['section_id']) && $data['section_id'] !== null && $data['section_id'] !== '' && (int)$data['section_id'] > 0) 
         ? (int)$data['section_id'] 
         : null;
     $focusedTime = (int)$data['focused_time'];
     $unfocusedTime = (int)$data['unfocused_time'];
     $totalTime = (int)$data['total_time'];
+    
+    // Log for debugging
+    error_log("Eye tracking save request: user_id=$userId, module_id=$moduleId, section_id=" . ($sectionId ?? 'NULL') . ", focused=$focusedTime, unfocused=$unfocusedTime, total=$totalTime");
     
     // Calculate focus percentage
     $focusPercentage = $totalTime > 0 ? round(($focusedTime / $totalTime) * 100, 2) : 0;
@@ -95,11 +98,12 @@ try {
     }
     
     // Bind parameters: user_id, module_id, section_id (can be NULL), focused_time, unfocused_time, total_time
-    // For NULL values, we need to pass the variable directly - mysqli will handle it
+    // mysqli handles NULL values correctly when the variable is actually NULL
+    // We need to ensure the variable reference is correct
     $stmt->bind_param('iiiiii', $userId, $moduleId, $sectionId, $focusedTime, $unfocusedTime, $totalTime);
     
     if (!$stmt->execute()) {
-        throw new Exception('Failed to execute insert: ' . $stmt->error);
+        throw new Exception('Failed to execute insert: ' . $stmt->error . ' | SQL: ' . $insertQuery);
     }
     
     $sessionId = $conn->insert_id;
@@ -108,26 +112,45 @@ try {
     $action = 'created';
     
     // Update or create analytics entry
-    $analyticsCheckQuery = "SELECT id FROM eye_tracking_analytics 
-                             WHERE user_id = ? AND module_id = ? AND DATE(date) = CURDATE()";
+    // Match on user_id, module_id, section_id (handling NULL), and date
+    $analyticsCheckQuery = "SELECT id, total_focused_time, total_unfocused_time, session_count 
+                             FROM eye_tracking_analytics 
+                             WHERE user_id = ? AND module_id = ? 
+                             AND (section_id = ? OR (section_id IS NULL AND ? IS NULL))
+                             AND DATE(date) = CURDATE()";
     $stmt = $conn->prepare($analyticsCheckQuery);
-    $stmt->bind_param('ii', $userId, $moduleId);
+    if (!$stmt) {
+        throw new Exception('Failed to prepare analytics check: ' . $conn->error);
+    }
+    $stmt->bind_param('iiii', $userId, $moduleId, $sectionId, $sectionId);
     $stmt->execute();
     $analyticsResult = $stmt->get_result();
     $existingAnalytics = $analyticsResult->fetch_assoc();
     $stmt->close();
     
     if ($existingAnalytics) {
-        // Update analytics
+        // Update analytics - ACCUMULATE values, don't replace
+        $newFocusedTime = $existingAnalytics['total_focused_time'] + $focusedTime;
+        $newUnfocusedTime = $existingAnalytics['total_unfocused_time'] + $unfocusedTime;
+        $newTotalTime = $newFocusedTime + $newUnfocusedTime;
+        $newFocusPercentage = $newTotalTime > 0 ? round(($newFocusedTime / $newTotalTime) * 100, 2) : 0;
+        $newSessionCount = $existingAnalytics['session_count'] + 1;
+        
         $updateAnalyticsQuery = "UPDATE eye_tracking_analytics 
                                   SET total_focused_time = ?,
                                       total_unfocused_time = ?,
                                       focus_percentage = ?,
+                                      session_count = ?,
                                       updated_at = NOW()
                                   WHERE id = ?";
         $stmt = $conn->prepare($updateAnalyticsQuery);
-        $stmt->bind_param('iidi', $focusedTime, $unfocusedTime, $focusPercentage, $existingAnalytics['id']);
-        $stmt->execute();
+        if (!$stmt) {
+            throw new Exception('Failed to prepare analytics update: ' . $conn->error);
+        }
+        $stmt->bind_param('iidii', $newFocusedTime, $newUnfocusedTime, $newFocusPercentage, $newSessionCount, $existingAnalytics['id']);
+        if (!$stmt->execute()) {
+            throw new Exception('Failed to execute analytics update: ' . $stmt->error);
+        }
         $stmt->close();
     } else {
         // Insert analytics
@@ -138,6 +161,7 @@ try {
         if (!$stmt) {
             throw new Exception('Failed to prepare analytics insert: ' . $conn->error);
         }
+        // Handle NULL section_id properly - mysqli handles NULL correctly
         $stmt->bind_param('iiiiiid', $userId, $moduleId, $sectionId, $focusedTime, $unfocusedTime, $focusPercentage);
         if (!$stmt->execute()) {
             throw new Exception('Failed to execute analytics insert: ' . $stmt->error);
