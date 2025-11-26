@@ -55,17 +55,9 @@ foreach ($required_fields as $field) {
 }
 
 try {
-    // Check if record exists for today to update or create new
-    $check_query = "SELECT id, total_time_seconds, focused_time_seconds, unfocused_time_seconds 
-                   FROM eye_tracking_sessions 
-                   WHERE user_id = ? AND module_id = ? AND (? IS NULL OR section_id = ?)
-                   AND DATE(created_at) = CURDATE()
-                   ORDER BY created_at DESC LIMIT 1";
-    
-    $check_stmt = $conn->prepare($check_query);
+    // Always create a new session record to ensure accurate session counting
+    // Each study session should be a separate record for proper analytics
     $section_id = $data['section_id'] ?? null;
-    $check_stmt->execute([$data['user_id'], $data['module_id'], $section_id, $section_id]);
-    $existing_record = $check_stmt->fetch(PDO::FETCH_ASSOC);
     
     // Extract values from data - Python service sends time in seconds
     $total_time_seconds = intval($data['total_time'] ?? 0);
@@ -87,61 +79,33 @@ try {
         'timestamp' => date('Y-m-d H:i:s')
     ]);
     
-    if ($existing_record) {
-        // Update existing record - accumulate values
-        $new_total_time = intval($existing_record['total_time_seconds']) + $total_time_seconds;
-        $new_focused_time = intval($existing_record['focused_time_seconds']) + $focused_time_seconds;
-        $new_unfocused_time = intval($existing_record['unfocused_time_seconds']) + $unfocused_time_seconds;
-        
-        $update_sql = "UPDATE eye_tracking_sessions 
-                      SET total_time_seconds = ?, 
-                          focused_time_seconds = ?,
-                          unfocused_time_seconds = ?,
-                          session_data = ?,
-                          last_updated = NOW() 
-                      WHERE id = ?";
-        $update_stmt = $conn->prepare($update_sql);
-        $update_stmt->execute([
-            $new_total_time, 
-            $new_focused_time, 
-            $new_unfocused_time,
-            $session_data,
-            $existing_record['id']
-        ]);
-        
-        $record_id = $existing_record['id'];
-        $total_time_seconds = $new_total_time;
-        $focused_time_seconds = $new_focused_time;
-        $unfocused_time_seconds = $new_unfocused_time;
-    } else {
-        // Create new record - use actual table columns matching database schema
-        $insert_sql = "
-            INSERT INTO eye_tracking_sessions (
-                user_id, 
-                module_id, 
-                section_id, 
-                total_time_seconds,
-                focused_time_seconds,
-                unfocused_time_seconds,
-                session_type,
-                session_data
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ";
-        
-        $insert_stmt = $conn->prepare($insert_sql);
-        $insert_stmt->execute([
-            $data['user_id'],
-            $data['module_id'],
-            $section_id,
-            $total_time_seconds,
-            $focused_time_seconds,
-            $unfocused_time_seconds,
-            $session_type,
-            $session_data
-        ]);
-        
-        $record_id = $conn->lastInsertId();
-    }
+    // Create new record - use actual table columns matching database schema
+    $insert_sql = "
+        INSERT INTO eye_tracking_sessions (
+            user_id, 
+            module_id, 
+            section_id, 
+            total_time_seconds,
+            focused_time_seconds,
+            unfocused_time_seconds,
+            session_type,
+            session_data
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ";
+    
+    $insert_stmt = $conn->prepare($insert_sql);
+    $insert_stmt->execute([
+        $data['user_id'],
+        $data['module_id'],
+        $section_id,
+        $total_time_seconds,
+        $focused_time_seconds,
+        $unfocused_time_seconds,
+        $session_type,
+        $session_data
+    ]);
+    
+    $record_id = $conn->lastInsertId();
     
     echo json_encode([
         'success' => true,

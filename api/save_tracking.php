@@ -72,55 +72,19 @@ try {
     // Calculate focus percentage
     $focusPercentage = $totalTime > 0 ? round(($focusedTime / $totalTime) * 100, 2) : 0;
     
-    // Check if a session already exists for this user/module/section today
-    // FIX: Use consistent date comparison with fetch query
-    $checkQuery = "SELECT id, focused_time_seconds, unfocused_time_seconds, total_time_seconds 
-                   FROM eye_tracking_sessions 
-                   WHERE user_id = ? 
-                   AND module_id = ? 
-                   AND (section_id = ? OR (section_id IS NULL AND ? IS NULL))
-                   AND DATE(created_at) = CURDATE()
-                   ORDER BY last_updated DESC 
-                   LIMIT 1";
+    // Always create a new session record to ensure accurate session counting
+    // Each study session should be a separate record for proper analytics
+    $insertQuery = "INSERT INTO eye_tracking_sessions 
+                    (user_id, module_id, section_id, focused_time_seconds, unfocused_time_seconds, total_time_seconds, session_type, created_at, last_updated)
+                    VALUES (?, ?, ?, ?, ?, ?, 'learning', NOW(), NOW())";
     
-    $stmt = $conn->prepare($checkQuery);
-    $stmt->bind_param('iiii', $userId, $moduleId, $sectionId, $sectionId);
+    $stmt = $conn->prepare($insertQuery);
+    $stmt->bind_param('iiiiii', $userId, $moduleId, $sectionId, $focusedTime, $unfocusedTime, $totalTime);
     $stmt->execute();
-    $result = $stmt->get_result();
-    $existingSession = $result->fetch_assoc();
+    $sessionId = $conn->insert_id;
     $stmt->close();
     
-    if ($existingSession) {
-        // Update existing session - ADD to existing values instead of replacing
-        // This ensures multiple sessions in the same day are accumulated correctly
-        $updateQuery = "UPDATE eye_tracking_sessions 
-                        SET focused_time_seconds = COALESCE(focused_time_seconds, 0) + ?,
-                            unfocused_time_seconds = COALESCE(unfocused_time_seconds, 0) + ?,
-                            total_time_seconds = COALESCE(total_time_seconds, 0) + ?,
-                            last_updated = NOW()
-                        WHERE id = ?";
-        
-        $stmt = $conn->prepare($updateQuery);
-        $stmt->bind_param('iiii', $focusedTime, $unfocusedTime, $totalTime, $existingSession['id']);
-        $stmt->execute();
-        $stmt->close();
-        
-        $sessionId = $existingSession['id'];
-        $action = 'updated';
-    } else {
-        // Insert new session
-        $insertQuery = "INSERT INTO eye_tracking_sessions 
-                        (user_id, module_id, section_id, focused_time_seconds, unfocused_time_seconds, total_time_seconds, session_type, created_at, last_updated)
-                        VALUES (?, ?, ?, ?, ?, ?, 'learning', NOW(), NOW())";
-        
-        $stmt = $conn->prepare($insertQuery);
-        $stmt->bind_param('iiiiii', $userId, $moduleId, $sectionId, $focusedTime, $unfocusedTime, $totalTime);
-        $stmt->execute();
-        $sessionId = $conn->insert_id;
-        $stmt->close();
-        
-        $action = 'created';
-    }
+    $action = 'created';
     
     // Update or create analytics entry
     $analyticsCheckQuery = "SELECT id FROM eye_tracking_analytics 

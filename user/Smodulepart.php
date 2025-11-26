@@ -1743,38 +1743,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body class="bg-gray-50">
     <!-- WebSocket Eye Tracking Widget -->
-    <div id="eye-tracking-widget" class="fixed top-20 right-4 z-50 bg-black rounded-lg shadow-xl border border-gray-700 p-4 w-80" style="display: none;">
-        <h3 class="text-sm font-semibold text-white mb-3 flex items-center justify-between cursor-move">
-            <span>Eye Tracking</span>
-            <span id="tracking-status-indicator" class="flex items-center gap-2">
-                <span class="relative flex h-3 w-3 bg-gray-500 rounded-full"></span>
-                <span class="text-xs text-gray-300 font-medium">Initializing...</span>
-            </span>
-        </h3>
-        <div class="space-y-3">
-            <div class="flex justify-between items-center text-xs">
-                <span class="text-gray-300">Focused:</span>
+    <div id="eye-tracking-widget" class="fixed top-16 left-0 z-40 bg-black border-b border-gray-700 px-3 py-1.5" style="display: block;">
+        <div class="flex items-center gap-4 text-xs">
+            <div class="flex items-center gap-2">
+                <span class="text-gray-400 font-medium">Eye Tracking</span>
+                <span id="tracking-status-indicator" class="flex items-center gap-1.5">
+                    <span class="relative flex h-2 w-2 bg-gray-500 rounded-full"></span>
+                    <span class="text-gray-300">Initializing...</span>
+                </span>
+            </div>
+            <div class="flex items-center gap-1">
+                <span class="text-gray-400">Focused:</span>
                 <span id="focused-time" class="font-medium text-green-400">0s</span>
             </div>
-            <div class="flex justify-between items-center text-xs">
-                <span class="text-gray-300">Unfocused:</span>
+            <div class="flex items-center gap-1">
+                <span class="text-gray-400">Unfocused:</span>
                 <span id="unfocused-time" class="font-medium text-red-400">0s</span>
             </div>
-            <div class="flex justify-between items-center text-xs">
-                <span class="text-gray-300">Total:</span>
+            <div class="flex items-center gap-1">
+                <span class="text-gray-400">Total:</span>
                 <span id="session-time" class="font-medium text-blue-400">0s</span>
             </div>
-            <div class="mt-2">
-                <div class="flex justify-between items-center mb-1 text-xs">
-                    <span class="text-gray-300">Focus:</span>
-                    <span id="focus-percentage" class="font-medium text-white">0%</span>
-                </div>
-                <div class="w-full bg-gray-700 rounded-full h-2">
-                    <div id="focus-progress-bar" class="bg-gray-500 h-2 rounded-full transition-all duration-300" style="width: 0%;"></div>
+            <div class="flex items-center gap-1.5">
+                <span class="text-gray-400">Focus:</span>
+                <span id="focus-percentage" class="font-medium text-white">0%</span>
+                <div class="w-16 bg-gray-700 rounded-full h-1.5">
+                    <div id="focus-progress-bar" class="bg-gray-500 h-1.5 rounded-full transition-all duration-300" style="width: 0%;"></div>
                 </div>
             </div>
-            <div id="current-focus-status" class="mt-3 p-2 bg-gray-900 rounded text-center">
-                <span class="text-xs font-medium text-gray-200">Initializing...</span>
+            <div id="current-focus-status" class="text-gray-300 text-xs">
+                <span>Initializing...</span>
             </div>
         </div>
     </div>
@@ -1976,12 +1974,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </nav>
     
-    <div class="flex min-h-screen pt-16">
+    <div class="flex min-h-screen pt-24">
         <!-- Mobile backdrop -->
         <div id="backdrop" class="backdrop"></div>
         
         <!-- Module Sidebar -->
-        <div id="sidebar" class="sidebar fixed left-0 top-16 h-full shadow-lg z-40 flex flex-col transition-all duration-300 ease-in-out">
+        <div id="sidebar" class="sidebar fixed left-0 top-24 h-full shadow-lg z-40 flex flex-col transition-all duration-300 ease-in-out">
             <div class="p-3 border-b border-gray-200">
                 <h2 class="text-lg font-bold text-gray-900 mb-2"><?php echo !empty($modules) ? htmlspecialchars(reset($modules)['title']) : 'Learning Content'; ?></h2>
                 <div class="flex items-center justify-between mt-2">
@@ -3727,55 +3725,12 @@ document.addEventListener('DOMContentLoaded', function() {
             return `${mins}m ${secs}s`;
         }
         
-        // Make widget draggable
-        let isDragging = false;
-        let currentX, currentY, initialX, initialY;
-        
-        widget.addEventListener('mousedown', function(e) {
-            if (e.target.closest('h3')) { // Only drag from header
-                isDragging = true;
-                initialX = e.clientX - widget.offsetLeft;
-                initialY = e.clientY - widget.offsetTop;
-                widget.style.cursor = 'grabbing';
-            }
-        });
-        
-        document.addEventListener('mousemove', function(e) {
-            if (isDragging) {
-                e.preventDefault();
-                currentX = e.clientX - initialX;
-                currentY = e.clientY - initialY;
-                
-                // Keep within viewport
-                const maxX = window.innerWidth - widget.offsetWidth;
-                const maxY = window.innerHeight - widget.offsetHeight;
-                currentX = Math.max(0, Math.min(currentX, maxX));
-                currentY = Math.max(0, Math.min(currentY, maxY));
-                
-                widget.style.left = currentX + 'px';
-                widget.style.top = currentY + 'px';
-                widget.style.right = 'auto';
-                widget.style.bottom = 'auto';
-            }
-        });
-        
-        document.addEventListener('mouseup', function() {
-            if (isDragging) {
-                isDragging = false;
-                widget.style.cursor = 'move';
-            }
-        });
-        
-        // Add cursor style on header
-        widget.querySelector('h3').style.cursor = 'move';
+        // Widget is now a fixed bar, no dragging needed
         
         // Create WebSocket connection
         webcamSocket = new WebcamWebSocket({
             onTrackingUpdate: function(data) {
-                // Show widget on first update
-                if (widget.style.display === 'none') {
-                    widget.style.display = 'block';
-                }
+                // Widget is always visible now
                 
                 // Update focus status
                 if (data.is_focused !== undefined) {
@@ -3854,7 +3809,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         </span>
                         <span class="text-xs text-green-400 font-medium">Active</span>
                     `;
-                    widget.style.display = 'block';
                 } else {
                     console.log('❌ Disconnected from WebSocket eye tracking server');
                     statusIndicator.innerHTML = `

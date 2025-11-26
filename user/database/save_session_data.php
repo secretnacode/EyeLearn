@@ -46,14 +46,12 @@ try {
         throw new Exception('Module ID is required');
     }
 
-    // Insert or update session data
+    // Always create a new session record to ensure accurate session counting
+    // Each study session should be a separate record for proper analytics
     $session_sql = "
         INSERT INTO eye_tracking_sessions 
         (user_id, module_id, section_id, total_time_seconds, session_type, created_at, last_updated) 
         VALUES (?, ?, ?, ?, 'viewing', NOW(), NOW())
-        ON DUPLICATE KEY UPDATE 
-        total_time_seconds = total_time_seconds + VALUES(total_time_seconds),
-        last_updated = NOW()
     ";
 
     $stmt = $conn->prepare($session_sql);
