@@ -18,8 +18,17 @@ import requests
 import mediapipe as mp
 
 # Setup logging
-logging.basicConfig(level=logging.INFO)
+# Use INFO level for production, but suppress some harmless warnings
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
+
+# Suppress noisy eventlet warnings in production
+logging.getLogger('eventlet').setLevel(logging.WARNING)
+logging.getLogger('engineio').setLevel(logging.WARNING)
+logging.getLogger('socketio').setLevel(logging.WARNING)
 
 # Flask app
 app = Flask(__name__)
@@ -466,7 +475,9 @@ def handle_video_frame(data):
                 break
         
         if not session:
-            logger.warning("⚠️ No active session for this client")
+            # Session not ready yet - this is normal during connection setup
+            # Only log at debug level to reduce noise in production logs
+            logger.debug("⚠️ No active session for this client (session may still be initializing)")
             return
         
         # Process frame
