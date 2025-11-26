@@ -64,10 +64,11 @@ try {
     $dashboardData['gender_distribution'] = $genderData;
     
     // 6. Get focus time data by gender from eye tracking sessions (improved filtering)
+    // FIX: Use focused_time_seconds instead of total_time_seconds for accurate focus tracking
     $focusTimeQuery = "SELECT 
         u.gender,
-        AVG(CASE WHEN ets.total_time_seconds BETWEEN 30 AND 7200 THEN ets.total_time_seconds ELSE NULL END) as avg_focus_time_seconds,
-        COUNT(CASE WHEN ets.total_time_seconds BETWEEN 30 AND 7200 THEN 1 ELSE NULL END) as session_count
+        AVG(CASE WHEN ets.total_time_seconds BETWEEN 30 AND 7200 AND ets.focused_time_seconds > 0 THEN ets.focused_time_seconds ELSE NULL END) as avg_focus_time_seconds,
+        COUNT(CASE WHEN ets.total_time_seconds BETWEEN 30 AND 7200 AND ets.focused_time_seconds > 0 THEN 1 ELSE NULL END) as session_count
         FROM eye_tracking_sessions ets
         JOIN users u ON ets.user_id = u.id
         WHERE u.gender != '' AND u.gender IS NOT NULL
@@ -132,9 +133,9 @@ try {
                 LEFT JOIN (
                     SELECT 
                         user_id,
-                        SUM(CASE WHEN total_time_seconds BETWEEN 30 AND 7200 THEN total_time_seconds ELSE 0 END) as total_focus_time_seconds,
+                        SUM(CASE WHEN total_time_seconds BETWEEN 30 AND 7200 AND focused_time_seconds > 0 THEN focused_time_seconds ELSE 0 END) as total_focus_time_seconds,
                         COUNT(DISTINCT id) as total_sessions,
-                        COUNT(CASE WHEN total_time_seconds BETWEEN 30 AND 7200 THEN 1 ELSE NULL END) as valid_sessions
+                        COUNT(CASE WHEN total_time_seconds BETWEEN 30 AND 7200 AND focused_time_seconds > 0 THEN 1 ELSE NULL END) as valid_sessions
                     FROM eye_tracking_sessions
                     WHERE module_id = ?
                     GROUP BY user_id
@@ -168,9 +169,9 @@ try {
                 LEFT JOIN (
                     SELECT 
                         user_id,
-                        SUM(CASE WHEN total_time_seconds BETWEEN 30 AND 7200 THEN total_time_seconds ELSE 0 END) as total_focus_time_seconds,
+                        SUM(CASE WHEN total_time_seconds BETWEEN 30 AND 7200 AND focused_time_seconds > 0 THEN focused_time_seconds ELSE 0 END) as total_focus_time_seconds,
                         COUNT(DISTINCT id) as total_sessions,
-                        COUNT(CASE WHEN total_time_seconds BETWEEN 30 AND 7200 THEN 1 ELSE NULL END) as valid_sessions
+                        COUNT(CASE WHEN total_time_seconds BETWEEN 30 AND 7200 AND focused_time_seconds > 0 THEN 1 ELSE NULL END) as valid_sessions
                     FROM eye_tracking_sessions
                     WHERE module_id = ?
                     GROUP BY user_id
@@ -223,9 +224,9 @@ try {
                 LEFT JOIN (
                     SELECT 
                         user_id,
-                        SUM(CASE WHEN total_time_seconds BETWEEN 30 AND 7200 THEN total_time_seconds ELSE 0 END) as total_focus_time_seconds,
+                        SUM(CASE WHEN total_time_seconds BETWEEN 30 AND 7200 AND focused_time_seconds > 0 THEN focused_time_seconds ELSE 0 END) as total_focus_time_seconds,
                         COUNT(DISTINCT id) as total_sessions,
-                        COUNT(CASE WHEN total_time_seconds BETWEEN 30 AND 7200 THEN 1 ELSE NULL END) as valid_sessions
+                        COUNT(CASE WHEN total_time_seconds BETWEEN 30 AND 7200 AND focused_time_seconds > 0 THEN 1 ELSE NULL END) as valid_sessions
                     FROM eye_tracking_sessions
                     GROUP BY user_id
                 ) focus_data ON u.id = focus_data.user_id
@@ -261,9 +262,9 @@ try {
                 LEFT JOIN (
                     SELECT 
                         user_id,
-                        SUM(CASE WHEN total_time_seconds BETWEEN 30 AND 7200 THEN total_time_seconds ELSE 0 END) as total_focus_time_seconds,
+                        SUM(CASE WHEN total_time_seconds BETWEEN 30 AND 7200 AND focused_time_seconds > 0 THEN focused_time_seconds ELSE 0 END) as total_focus_time_seconds,
                         COUNT(DISTINCT id) as total_sessions,
-                        COUNT(CASE WHEN total_time_seconds BETWEEN 30 AND 7200 THEN 1 ELSE NULL END) as valid_sessions
+                        COUNT(CASE WHEN total_time_seconds BETWEEN 30 AND 7200 AND focused_time_seconds > 0 THEN 1 ELSE NULL END) as valid_sessions
                     FROM eye_tracking_sessions
                     GROUP BY user_id
                 ) focus_data ON u.id = focus_data.user_id
@@ -416,14 +417,15 @@ try {
     $dashboardData['student_performance'] = $studentPerformance;
     
     // 8. Get focus time trends by module for chart data
+    // FIX: Use focused_time_seconds instead of total_time_seconds for accurate focus tracking
     $moduleAnalyticsQuery = "SELECT 
         m.title as module_name,
         u.gender,
-        AVG(CASE WHEN ets.total_time_seconds > 0 THEN ets.total_time_seconds ELSE NULL END) as avg_time_seconds
+        AVG(CASE WHEN ets.focused_time_seconds > 0 THEN ets.focused_time_seconds ELSE NULL END) as avg_time_seconds
         FROM eye_tracking_sessions ets
         JOIN users u ON ets.user_id = u.id
         JOIN modules m ON ets.module_id = m.id
-        WHERE u.gender != '' AND ets.total_time_seconds > 0
+        WHERE u.gender != '' AND ets.focused_time_seconds > 0
         GROUP BY m.id, m.title, u.gender
         ORDER BY m.id, u.gender";
     $result = $conn->query($moduleAnalyticsQuery);
@@ -447,6 +449,8 @@ try {
     $recentStats = $result->fetch_assoc();
 
    // 10. Time to complete module by gender (fixed version)
+        // NOTE: This uses total_time_seconds (total study time) which is intentional for "time to complete"
+        // If you want focused time instead, change to focused_time_seconds
         $timeToCompleteQuery = "
             SELECT 
                 gender,
@@ -577,8 +581,9 @@ try {
     $dashboardData['avg_score_by_gender'] = $avgScoreByGender;
 
     // 12. Focus Time and Quiz Score Correlation Data
+    // FIX: Use focused_time_seconds instead of total_time_seconds for accurate focus tracking
     // Corrected query: First, aggregate total focus time per user/module, then join with quiz results.
-    // Use consistent filtering (30-7200 seconds) like other queries
+    // Use consistent filtering (30-7200 seconds for session validation, focused_time_seconds > 0 for focus data)
     $correlationQuery = "
         SELECT
             qr.module_id,
@@ -593,9 +598,9 @@ try {
             SELECT 
                 user_id, 
                 module_id, 
-                SUM(CASE WHEN total_time_seconds BETWEEN 30 AND 7200 THEN total_time_seconds ELSE 0 END) / 60 as total_focus_time_minutes
+                SUM(CASE WHEN total_time_seconds BETWEEN 30 AND 7200 AND focused_time_seconds > 0 THEN focused_time_seconds ELSE 0 END) / 60 as total_focus_time_minutes
             FROM eye_tracking_sessions
-            WHERE total_time_seconds BETWEEN 30 AND 7200
+            WHERE total_time_seconds BETWEEN 30 AND 7200 AND focused_time_seconds > 0
             GROUP BY user_id, module_id
         ) AS module_focus ON qr.user_id = module_focus.user_id AND qr.module_id = module_focus.module_id
         WHERE u.role = 'student'
