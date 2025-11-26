@@ -5,11 +5,13 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-// Add database connection
+// Add database connection - consistent pattern across all files
 $conn = new mysqli(getenv('MYSQLHOST') ?: 'tramway.proxy.rlwy.net', getenv('MYSQLUSER') ?: 'root', getenv('MYSQLPASSWORD') ?: 'niCcpkrZKKhLDhXeTbcbhIYSFJBfNibP', getenv('MYSQLDATABASE') ?: 'railway', intval(getenv('MYSQLPORT') ?: 10241));
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
+// Set charset for consistent encoding
+$conn->set_charset('utf8mb4');
 
 // Get user information
 $user_id = $_SESSION['user_id'];
@@ -103,42 +105,60 @@ $completed_modules = [];
 $available_modules = [];
 
 while ($module = $result->fetch_assoc()) {
-    // Calculate progress including both sections and checkpoint quizzes
-    $completed_sections = json_decode($module['completed_sections'] ?? '[]', true);
-    $completed_sections = is_array($completed_sections) ? $completed_sections : [];
+    // Calculate progress - CONSISTENT with Smodulepart.php: exclude checkpoint quizzes from progress
+    // Normalize section IDs to strings for consistent comparison
+    $decoded_sections = json_decode($module['completed_sections'] ?? '[]', true);
+    $completed_sections = is_array($decoded_sections) ? array_map(function($id) {
+        return (string)$id;
+    }, $decoded_sections) : [];
     
+    // Note: Checkpoint quizzes are tracked separately but NOT included in progress percentage
+    // This matches the behavior in Smodulepart.php where checkpoint quizzes are excluded from progress
     $completed_checkpoint_quizzes = json_decode($module['completed_checkpoint_quizzes'] ?? '[]', true);
     $completed_checkpoint_quizzes = is_array($completed_checkpoint_quizzes) ? $completed_checkpoint_quizzes : [];
     
     $total_sections = intval($module['total_sections'] ?? 0);
     $total_checkpoint_quizzes = intval($module['total_checkpoint_quizzes'] ?? 0);
     
-    // Calculate total items and completed items
-    $total_items = $total_sections + $total_checkpoint_quizzes;
-    $completed_items = count($completed_sections) + count($completed_checkpoint_quizzes);
+    // Calculate progress based ONLY on regular sections (exclude checkpoint quizzes)
+    // This is consistent with Smodulepart.php progress calculation
+    $completed_regular_sections = 0;
+    foreach ($completed_sections as $section_id) {
+        // Exclude checkpoint quizzes (they start with 'checkpoint_')
+        if (strpos($section_id, 'checkpoint_') !== 0) {
+            $completed_regular_sections++;
+        }
+    }
     
-    // Calculate progress percentage (0-100)
-    if ($total_items > 0) {
-        $progress = round(($completed_items / $total_items) * 100);
+    // Calculate progress percentage based on regular sections only
+    if ($total_sections > 0) {
+        $progress = round(($completed_regular_sections / $total_sections) * 100);
         // Ensure progress is between 0 and 100
         $progress = max(0, min(100, $progress));
     } else {
         $progress = 0;
     }
+    
+    // For display purposes, still track total items including checkpoint quizzes
+    $total_items = $total_sections + $total_checkpoint_quizzes;
+    $completed_items = $completed_regular_sections + count($completed_checkpoint_quizzes);
 
     $module['has_completed_final_quiz'] = !empty($module['has_completed_final_quiz']);
     $module['quiz_status_text'] = $module['has_completed_final_quiz'] ? 'Quiz Completed' : 'Awaiting Quiz';
     $module['quiz_status_class'] = $module['has_completed_final_quiz'] ? 'text-green-600' : 'text-yellow-600';
     
     // Add progress info to module
-    $module['progress'] = $progress;
-    $module['completed_count'] = $completed_items;
-    $module['total_count'] = $total_items;
+    $module['progress'] = $progress; // Progress based on regular sections only (0-100%)
+    $module['completed_count'] = $completed_regular_sections; // Regular sections completed
+    $module['total_count'] = $total_sections; // Total regular sections
+    $module['checkpoint_completed'] = count($completed_checkpoint_quizzes); // Checkpoint quizzes completed
+    $module['checkpoint_total'] = $total_checkpoint_quizzes; // Total checkpoint quizzes
     
     // Sort into appropriate array
     // Module is available if no progress record exists
     // Module is in progress if progress exists but is less than 100%
-    // Module is completed if progress is 100% (all sections and checkpoint quizzes completed)
+    // Module is completed if progress is 100% (all regular sections completed)
+    // Note: Checkpoint quizzes don't affect completion status (they're optional assessments)
     if ($module['completed_sections'] !== null || $module['completed_checkpoint_quizzes'] !== null) {
         if ($progress >= 100) {
             $completed_modules[] = $module;

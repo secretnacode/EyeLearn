@@ -5,11 +5,13 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-// Add database connection
+// Add database connection - consistent pattern across all files
 $conn = new mysqli(getenv('MYSQLHOST') ?: 'tramway.proxy.rlwy.net', getenv('MYSQLUSER') ?: 'root', getenv('MYSQLPASSWORD') ?: 'niCcpkrZKKhLDhXeTbcbhIYSFJBfNibP', getenv('MYSQLDATABASE') ?: 'railway', intval(getenv('MYSQLPORT') ?: 10241));
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
+// Set charset for consistent encoding
+$conn->set_charset('utf8mb4');
 
 // Get user information
 $user_id = $_SESSION['user_id'];

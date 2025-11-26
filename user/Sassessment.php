@@ -442,11 +442,24 @@ if ($result->num_rows > 0) {
                                     $status_color = $total_questions > 0 && $percentage >= 70 ? 'green' : 'red';
 
                                     // Calculate module progress from completed sections
-                                    $completed_sections = json_decode($row['completed_sections'] ?? '[]', true);
-                                    $completed_count = is_array($completed_sections) ? count($completed_sections) : 0;
+                                    // CONSISTENT with Smodulepart.php: normalize IDs and exclude checkpoint quizzes
+                                    $decoded_sections = json_decode($row['completed_sections'] ?? '[]', true);
+                                    $completed_sections = is_array($decoded_sections) ? array_map(function($id) {
+                                        return (string)$id;
+                                    }, $decoded_sections) : [];
+                                    
+                                    // Count only regular sections (exclude checkpoint quizzes)
+                                    $completed_regular_count = 0;
+                                    foreach ($completed_sections as $section_id) {
+                                        // Exclude checkpoint quizzes (they start with 'checkpoint_')
+                                        if (strpos($section_id, 'checkpoint_') !== 0) {
+                                            $completed_regular_count++;
+                                        }
+                                    }
+                                    
                                     $total_sections = (int)($row['total_sections'] ?? 0);
                                     $module_progress = $total_sections > 0 
-                                        ? round(($completed_count / $total_sections) * 100, 0) 
+                                        ? round(($completed_regular_count / $total_sections) * 100, 0) 
                                         : 0;
                                     if ($module_progress > 100) {
                                         $module_progress = 100;

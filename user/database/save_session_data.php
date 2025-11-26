@@ -22,6 +22,8 @@ if ($conn->connect_error) {
     echo json_encode(['error' => 'Database connection failed']);
     exit();
 }
+// Set charset for consistent encoding
+$conn->set_charset('utf8mb4');
 
 $user_id = $_SESSION['user_id'];
 

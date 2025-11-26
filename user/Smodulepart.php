@@ -1,11 +1,13 @@
 <?php
 session_start();
 
-// Add database connection
+// Add database connection - consistent pattern across all files
 $conn = new mysqli(getenv('MYSQLHOST') ?: 'tramway.proxy.rlwy.net', getenv('MYSQLUSER') ?: 'root', getenv('MYSQLPASSWORD') ?: 'niCcpkrZKKhLDhXeTbcbhIYSFJBfNibP', getenv('MYSQLDATABASE') ?: 'railway', intval(getenv('MYSQLPORT') ?: 10241));
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
+// Set charset for consistent encoding
+$conn->set_charset('utf8mb4');
 
 if (!function_exists('ensureFinalQuizRetakeColumn')) {
     function ensureFinalQuizRetakeColumn(mysqli $connection): void
@@ -1006,13 +1008,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $completed_sections = [];
                 if ($progressResult && $progressResult->num_rows > 0) {
                     $progressData = $progressResult->fetch_assoc();
-                    $completed_sections = json_decode($progressData['completed_sections'], true) ?? [];
+                    $decoded_sections = json_decode($progressData['completed_sections'], true) ?? [];
+                    // Normalize all section IDs to strings for consistent comparison
+                    $completed_sections = is_array($decoded_sections) ? array_map(function($id) {
+                        return (string)$id;
+                    }, $decoded_sections) : [];
                 }
                 $progressStmt->close();
                 
                 // Add checkpoint section to completed sections if not already there
-                if (!in_array($checkpoint_section_id, $completed_sections)) {
-                    $completed_sections[] = $checkpoint_section_id;
+                // Normalize checkpoint section ID to string for consistent comparison
+                $normalized_checkpoint_id = (string)$checkpoint_section_id;
+                if (!in_array($normalized_checkpoint_id, $completed_sections)) {
+                    $completed_sections[] = $normalized_checkpoint_id;
                     $completed_json = json_encode($completed_sections);
                     
                     // Update or insert progress
