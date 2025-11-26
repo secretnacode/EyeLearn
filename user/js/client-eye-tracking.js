@@ -29,6 +29,11 @@ class ClientSideEyeTracking {
         this.unfocusedTime = 0;
         this.lastFocusChangeTime = null;
         this.lastSaveTime = null; // Track when we last saved to avoid double counting
+        
+        // Focus smoothing - prevent flickering
+        this.focusHistory = [];
+        this.focusHistorySize = 5; // Keep last 5 frames
+        this.focusThreshold = 0.6; // Require 60% of recent frames to be focused
 
         // Configuration
         this.updateInterval = null;
@@ -384,6 +389,9 @@ class ClientSideEyeTracking {
         this.focusedTime = 0;
         this.unfocusedTime = 0;
         
+        // Reset focus history for new session
+        this.focusHistory = [];
+        
         // Update UI immediately to show zeros
         this.updateUI();
 
@@ -443,11 +451,24 @@ class ClientSideEyeTracking {
                 // Draw face mesh (optional, for debugging)
                 this.drawFaceMesh(keypoints);
 
-                // Determine focus status
+                // Determine focus status with smoothing
+                const rawFocus = this.determineFocus(keypoints);
+                
+                // Add to focus history for smoothing
+                this.focusHistory.push(rawFocus);
+                if (this.focusHistory.length > this.focusHistorySize) {
+                    this.focusHistory.shift();
+                }
+                
+                // Calculate smoothed focus: require majority of recent frames to be focused
+                const focusCount = this.focusHistory.filter(f => f).length;
+                const focusRatio = this.focusHistory.length > 0 ? focusCount / this.focusHistory.length : 0;
+                const smoothedFocus = focusRatio >= this.focusThreshold;
+                
                 const wasFocused = this.isFocused;
-                this.isFocused = this.determineFocus(keypoints);
+                this.isFocused = smoothedFocus;
 
-                // Update time tracking
+                // Update time tracking only when smoothed state changes
                 if (wasFocused !== this.isFocused) {
                     const now = Date.now();
                     const duration = (now - this.lastFocusChangeTime) / 1000;
@@ -716,7 +737,8 @@ class ClientSideEyeTracking {
 
         // If we don't have real iris data (using fallback), be more strict
         // This helps detect covered eyes where iris detection fails
-        const irisTolerance = hasRealIrisData ? 0.3 : 0.25; // Stricter when using fallback
+        // RELAXED: Increased tolerance to be more lenient
+        const irisTolerance = hasRealIrisData ? 0.35 : 0.30; // Increased from 0.3/0.25 to 0.35/0.30
         
         const horizontalCentered =
             leftIrisRatio > irisTolerance && leftIrisRatio < (1 - irisTolerance) &&
@@ -726,7 +748,8 @@ class ClientSideEyeTracking {
             leftIrisVertical > irisTolerance && leftIrisVertical < (1 - irisTolerance) &&
             rightIrisVertical > irisTolerance && rightIrisVertical < (1 - irisTolerance);
 
-        const eyesAligned = Math.abs(leftIrisRatio - rightIrisRatio) < 0.3;
+        // RELAXED: Increased alignment tolerance
+        const eyesAligned = Math.abs(leftIrisRatio - rightIrisRatio) < 0.4; // Increased from 0.3 to 0.4
 
         return {
             horizontalCentered,
@@ -741,25 +764,31 @@ class ClientSideEyeTracking {
             return false; // Not enough landmarks
         }
 
-        // 1) Head pose estimation (yaw/pitch proxy via symmetry)
+        // 1) Head pose estimation (yaw/pitch proxy via symmetry) - RELAXED THRESHOLDS
         const headPose = this.computeHeadFrontalMetric(keypoints);
+        // Relaxed thresholds: allow more head movement before considering unfocused
         const isFaceFrontal =
-            headPose.horizontalRatio < 0.15 &&   // too far left/right => unfocused
-            headPose.verticalRatio < 0.20;       // too far up/down   => unfocused
+            headPose.horizontalRatio < 0.25 &&   // Increased from 0.15 to 0.25 (more lenient)
+            headPose.verticalRatio < 0.30;       // Increased from 0.20 to 0.30 (more lenient)
 
         // 2) Eye Aspect Ratio (EAR) for drowsiness / eye closure
         const earAvg = this.computeAverageEAR(keypoints);
         const isAwake = this.updateDrowsinessState(earAvg);
 
-        // 3) Iris / gaze: are eyes looking roughly toward the screen?
+        // 3) Iris / gaze: are eyes looking roughly toward the screen? - MORE LENIENT
         const irisMetrics = this.computeIrisMetrics(keypoints);
-        const isLookingAtScreen =
-            irisMetrics.horizontalCentered &&
-            irisMetrics.verticalCentered &&
-            irisMetrics.eyesAligned;
+        // More lenient: only require 2 out of 3 conditions OR if head is very frontal
+        const isLookingAtScreen = 
+            (irisMetrics.horizontalCentered && irisMetrics.verticalCentered) || // Both horizontal and vertical
+            (irisMetrics.horizontalCentered && irisMetrics.eyesAligned) ||      // Horizontal and aligned
+            (irisMetrics.verticalCentered && irisMetrics.eyesAligned) ||        // Vertical and aligned
+            (isFaceFrontal && headPose.horizontalRatio < 0.15 && headPose.verticalRatio < 0.15); // Very frontal head position
 
-        // Final combined attention decision
-        return (isFaceFrontal && isAwake && isLookingAtScreen);
+        // Final combined attention decision - more lenient: require face frontal + awake, gaze is optional if head is very frontal
+        const basicFocus = isFaceFrontal && isAwake;
+        const advancedFocus = basicFocus && (isLookingAtScreen || (headPose.horizontalRatio < 0.12 && headPose.verticalRatio < 0.12));
+        
+        return advancedFocus;
     }
 
     determineFocus(keypoints) {

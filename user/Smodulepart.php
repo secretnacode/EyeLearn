@@ -718,6 +718,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['section_completed']) 
                 $response['completion'] = $regular_total > 0 ? round(($regular_completed / $regular_total) * 100) : 0;
                 $response['completed_count'] = $regular_completed;
                 $response['total_count'] = $regular_total;
+                $response['section_id'] = $normalized_section_id; // Include section_id so frontend can update checkmark
             } else {
                 $response['error'] = 'Database update failed: ' . $stmt->error;
                 error_log("Progress update error: " . $stmt->error);
@@ -744,6 +745,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['section_completed']) 
         $response['success'] = true;
         $response['completion'] = $regular_total > 0 ? round(($regular_completed / $regular_total) * 100) : 0;
         $response['message'] = 'Section already completed';
+        $response['section_id'] = $normalized_section_id; // Include section_id so frontend can update checkmark
     }
 
     header('Content-Type: application/json');
@@ -2541,6 +2543,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                            }
                                        }
                                        
+                                       // Try to extract completed sections from the page (if available in a data attribute or script tag)
+                                       // This is a fallback - primary updates happen via updateSectionCheckmark when marking complete
+                                       try {
+                                           const completedSectionsScript = tempDiv.querySelector('script[data-completed-sections]');
+                                           if (completedSectionsScript) {
+                                               const completedSections = JSON.parse(completedSectionsScript.getAttribute('data-completed-sections') || '[]');
+                                               completedSections.forEach(sectionId => {
+                                                   updateSectionCheckmark(sectionId, true);
+                                               });
+                                           }
+                                       } catch (e) {
+                                           // Ignore errors - checkmarks will update when sections are marked complete
+                                       }
+                                       
                                        // Re-initialize any scripts that need to run
                                        initializePageScripts();
                                        
@@ -2688,6 +2704,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                }
                            }
                            
+                           // Update section checkmark in sidebar
+                           function updateSectionCheckmark(sectionId, isCompleted) {
+                               try {
+                                   // Find all section links in sidebar
+                                   const sidebarLinks = document.querySelectorAll('.section-item');
+                                   
+                                   sidebarLinks.forEach(link => {
+                                       const href = link.getAttribute('href');
+                                       if (href && href.includes('section_id=')) {
+                                           // Extract section_id from href
+                                           const urlParams = new URLSearchParams(href.split('?')[1] || href.substring(1));
+                                           const linkSectionId = urlParams.get('section_id');
+                                           
+                                           // Normalize both IDs for comparison (handle string/int)
+                                           const normalizedLinkId = String(linkSectionId);
+                                           const normalizedTargetId = String(sectionId);
+                                           
+                                           if (normalizedLinkId === normalizedTargetId) {
+                                               // Found the matching section link
+                                               const checkIcon = link.querySelector('.check-icon');
+                                               if (checkIcon) {
+                                                   if (isCompleted) {
+                                                       // Update to green checkmark
+                                                       checkIcon.classList.remove('text-gray-400');
+                                                       checkIcon.classList.add('text-green-500');
+                                                       // Also add completed class to parent for CSS styling
+                                                       link.classList.add('completed');
+                                                       console.log('✅ Checkmark updated for section:', sectionId);
+                                                   } else {
+                                                       // Update to gray (uncompleted)
+                                                       checkIcon.classList.remove('text-green-500');
+                                                       checkIcon.classList.add('text-gray-400');
+                                                       link.classList.remove('completed');
+                                                   }
+                                               }
+                                           }
+                                       }
+                                   });
+                               } catch (error) {
+                                   console.error('❌ Error updating section checkmark:', error);
+                               }
+                           }
+                           
                            // Initialize scripts after AJAX content load
                            function initializePageScripts() {
                                // Re-attach event listeners for the Next button
@@ -2742,6 +2801,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                        // Update sidebar progress bar if completion data is returned
                                        if (data.success && data.completion !== undefined) {
                                            updateSidebarProgress(data.completion);
+                                       }
+                                       // Update checkmark for completed section
+                                       if (data.success && data.section_id) {
+                                           updateSectionCheckmark(data.section_id, true);
                                        }
                                        // FIX #2: After marking complete, use AJAX to load next section
                                        loadContent(nextUrl);
