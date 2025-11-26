@@ -1787,9 +1787,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             sectionsContainer.style.overflow = '';
                             sectionsContainer.style.transition = '';
                         }, 200);
-                        if (chevron) {
-                            chevron.classList.add('rotated');
-                        }
+                        if (chevron) { chevron.classList.add('rotated'); }
                         header.setAttribute('aria-expanded', 'true');
                     } else {
                         const currentHeight = sectionsContainer.scrollHeight + 'px';
@@ -1805,9 +1803,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             sectionsContainer.style.overflow = '';
                             sectionsContainer.style.transition = '';
                         }, 200);
-                        if (chevron) {
-                            chevron.classList.remove('rotated');
-                        }
+                        if (chevron) { chevron.classList.remove('rotated'); }
                         header.setAttribute('aria-expanded', 'false');
                     }
                 }
@@ -1831,12 +1827,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             document.querySelectorAll('.part-sections').forEach(section => {
                                 if (section !== sectionsContainer) {
                                     section.style.display = 'none';
-                                    if (section.previousElementSibling) {
-                                section.previousElementSibling.classList.remove('rotated');
-                            }
-                                    if (section.previousElementSibling) {
-                                section.previousElementSibling.setAttribute('aria-expanded', 'false');
-                            }
+                                    if (section.previousElementSibling) { section.previousElementSibling.classList.remove('rotated'); }
+                                    if (section.previousElementSibling) { section.previousElementSibling.setAttribute('aria-expanded', 'false'); }
                                 }
                             });
 
@@ -2790,7 +2782,7 @@ const switchToQuizOverview = (score, buttonLabel) => {
     if (!finalQuizResultsEl) return;
     const statusAlert = document.getElementById('retake-status-alert');
     if (statusAlert) statusAlert.remove();
-    finalQuizSubheadingEl?.classList.remove('hidden');
+    if (finalQuizSubheadingEl) { finalQuizSubheadingEl.classList.remove('hidden'); }
     finalQuizResultsEl.innerHTML = buildQuizOverviewCard(score, buttonLabel);
     finalQuizResultsEl.classList.remove('hidden');
     if (finalQuizFormEl) {
@@ -2924,7 +2916,7 @@ const showQuizReview = () => {
                 window.location.reload();
             } else {
                 // JS-generated: switch back to overview
-                const score = finalQuizMeta.latestScore ?? 0;
+                const score = finalQuizMeta.latestScore !== undefined && finalQuizMeta.latestScore !== null ? finalQuizMeta.latestScore : 0;
                 const buttonLabel = finalQuizMeta.retakeButtonLabel || 'Retake Quiz';
                 switchToQuizOverview(score, buttonLabel);
             }
@@ -3298,7 +3290,7 @@ if (finalQuizFormEl && finalQuizResultsEl) {
             const response = await fetch(window.location.href, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     action: 'submit_final_quiz',
