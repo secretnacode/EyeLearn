@@ -37,22 +37,28 @@ for ($days_ago = 6; $days_ago >= 0; $days_ago--) {
         }
         
         // Calculate daily analytics
-        $total_focus_time = rand(900, 3000); // 15-50 minutes of focus time
+        // FIX: Use total_focused_time and total_unfocused_time instead of deprecated total_focus_time
+        $total_focused_time = rand(900, 3000); // 15-50 minutes of focused time
+        $total_unfocused_time = rand(100, 500); // 2-8 minutes of unfocused time
+        $total_time = $total_focused_time + $total_unfocused_time;
+        $focus_percentage = $total_time > 0 ? round(($total_focused_time / $total_time) * 100, 2) : 0;
         $session_count = $sessions_count;
-        $avg_session_time = intval($total_focus_time / $session_count);
+        $avg_session_time = intval($total_time / $session_count);
         $max_continuous = rand(600, 1800); // 10-30 minutes max continuous
         
         // Insert analytics data
-        $analytics_sql = "INSERT INTO eye_tracking_analytics (user_id, module_id, section_id, date, total_focus_time, session_count, average_session_time, max_continuous_time) 
-                         VALUES (?, ?, 1, ?, ?, ?, ?, ?) 
+        $analytics_sql = "INSERT INTO eye_tracking_analytics (user_id, module_id, section_id, date, total_focused_time, total_unfocused_time, focus_percentage, session_count, average_session_time, max_continuous_time) 
+                         VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?) 
                          ON DUPLICATE KEY UPDATE 
-                         total_focus_time = VALUES(total_focus_time),
+                         total_focused_time = VALUES(total_focused_time),
+                         total_unfocused_time = VALUES(total_unfocused_time),
+                         focus_percentage = VALUES(focus_percentage),
                          session_count = VALUES(session_count),
                          average_session_time = VALUES(average_session_time),
                          max_continuous_time = VALUES(max_continuous_time)";
         
         $stmt = $conn->prepare($analytics_sql);
-        $stmt->bind_param('iisiiii', $user_id, $module_id, $date, $total_focus_time, $session_count, $avg_session_time, $max_continuous);
+        $stmt->bind_param('iisiiidii', $user_id, $module_id, $date, $total_focused_time, $total_unfocused_time, $focus_percentage, $session_count, $avg_session_time, $max_continuous);
         $stmt->execute();
     }
 }

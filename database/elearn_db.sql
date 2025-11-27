@@ -193,7 +193,6 @@ CREATE TABLE `eye_tracking_analytics` (
   `module_id` int(11) NOT NULL,
   `section_id` int(11) DEFAULT NULL,
   `date` date NOT NULL,
-  `total_focus_time` int(11) DEFAULT 0,
   `session_count` int(11) DEFAULT 0,
   `average_session_time` int(11) DEFAULT 0,
   `max_continuous_time` int(11) DEFAULT 0,
@@ -208,7 +207,7 @@ CREATE TABLE `eye_tracking_analytics` (
 -- Dumping data for table `eye_tracking_analytics`
 --
 
-INSERT INTO `eye_tracking_analytics` (`id`, `user_id`, `module_id`, `section_id`, `date`, `total_focus_time`, `session_count`, `average_session_time`, `max_continuous_time`, `created_at`, `updated_at`, `total_focused_time`, `total_unfocused_time`, `focus_percentage`) VALUES
+INSERT INTO `eye_tracking_analytics` (`id`, `user_id`, `module_id`, `section_id`, `date`, `session_count`, `average_session_time`, `max_continuous_time`, `created_at`, `updated_at`, `total_focused_time`, `total_unfocused_time`, `focus_percentage`) VALUES
 (1, 1, 14, 0, '2025-07-19', 10, 2, 5, 0, '2025-07-19 18:06:57', '2025-07-19 18:08:26', 0, 0, 0.00),
 (2, 1, 14, 32, '2025-07-19', 19, 3, 6, 0, '2025-07-19 18:56:20', '2025-07-19 19:37:55', 0, 0, 0.00),
 (3, 1, 14, 33, '2025-07-19', 4, 1, 4, 0, '2025-07-19 18:56:50', '2025-07-19 18:56:50', 0, 0, 0.00),
@@ -732,7 +731,8 @@ CREATE TABLE `final_quiz_retakes` (
   `module_id` int(11) NOT NULL,
   `quiz_id` int(11) NOT NULL,
   `requested_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `used` tinyint(1) NOT NULL DEFAULT 0
+  `used` tinyint(1) NOT NULL DEFAULT 0,
+  `used_at` timestamp NULL DEFAULT NULL COMMENT 'Timestamp when the retake was used'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------

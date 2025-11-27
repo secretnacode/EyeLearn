@@ -68,12 +68,20 @@ try {
         $focus_percentage = $focus_data['focus_percentage'] ?? 0;
 
         // Update or insert daily analytics
+        // FIX: Use total_focused_time and total_unfocused_time instead of deprecated total_focus_time
+        $focus_percentage = $total_time > 0 ? round(($focused_time / $total_time) * 100, 2) : 0;
         $analytics_sql = "
             INSERT INTO eye_tracking_analytics 
-            (user_id, module_id, section_id, date, total_focus_time, session_count, average_session_time, max_continuous_time, created_at, updated_at) 
-            VALUES (?, ?, ?, CURDATE(), ?, 1, ?, ?, NOW(), NOW())
+            (user_id, module_id, section_id, date, total_focused_time, total_unfocused_time, focus_percentage, session_count, average_session_time, max_continuous_time, created_at, updated_at) 
+            VALUES (?, ?, ?, CURDATE(), ?, ?, ?, 1, ?, ?, NOW(), NOW())
             ON DUPLICATE KEY UPDATE 
-            total_focus_time = total_focus_time + VALUES(total_focus_time),
+            total_focused_time = total_focused_time + VALUES(total_focused_time),
+            total_unfocused_time = total_unfocused_time + VALUES(total_unfocused_time),
+            focus_percentage = CASE 
+                WHEN (total_focused_time + VALUES(total_focused_time) + total_unfocused_time + VALUES(total_unfocused_time)) > 0 
+                THEN ROUND(((total_focused_time + VALUES(total_focused_time)) / (total_focused_time + VALUES(total_focused_time) + total_unfocused_time + VALUES(total_unfocused_time))) * 100, 2)
+                ELSE 0
+            END,
             session_count = session_count + 1,
             average_session_time = (average_session_time + VALUES(average_session_time)) / 2,
             max_continuous_time = GREATEST(max_continuous_time, VALUES(max_continuous_time)),
@@ -81,13 +89,18 @@ try {
         ";
 
         $stmt = $conn->prepare($analytics_sql);
-        $stmt->bind_param('iiiiii', 
+        // 8 parameters: user_id(i), module_id(i), section_id(i), focused_time(i), unfocused_time(i), percentage(d), avg_session_time(i), max_continuous(i)
+        $avg_session_time = $session_time; // Use session_time as average for this single session
+        $max_continuous = $session_time; // Use session_time as max continuous for this single session
+        $stmt->bind_param('iiiiiidi', 
             $user_id, 
             $module_id, 
             $section_id, 
-            $focused_time, 
-            $session_time, 
-            $session_time
+            $focused_time,
+            $unfocused_time,
+            $focus_percentage,
+            $avg_session_time,
+            $max_continuous
         );
         
         $stmt->execute(); // Don't fail if analytics insert fails

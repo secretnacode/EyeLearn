@@ -162,7 +162,8 @@ try {
             throw new Exception('Failed to prepare analytics insert: ' . $conn->error);
         }
         // Handle NULL section_id properly - mysqli handles NULL correctly
-        $stmt->bind_param('iiiiiid', $userId, $moduleId, $sectionId, $focusedTime, $unfocusedTime, $focusPercentage);
+        // 6 parameters: user_id(i), module_id(i), section_id(i), focused_time(i), unfocused_time(i), percentage(d)
+        $stmt->bind_param('iiiiid', $userId, $moduleId, $sectionId, $focusedTime, $unfocusedTime, $focusPercentage);
         if (!$stmt->execute()) {
             throw new Exception('Failed to execute analytics insert: ' . $stmt->error);
         }
