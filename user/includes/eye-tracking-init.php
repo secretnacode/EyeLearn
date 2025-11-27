@@ -1,8 +1,7 @@
 <!-- TensorFlow.js for Client-Side Eye Tracking -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/facemesh"></script>
+<!-- Using TensorFlow.js 2.x which supports .toFloat() method required by facemesh -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.11.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/facemesh@2.1.0/dist/facemesh.min.js"></script>
 
 <!-- Eye Tracking Improvements -->
 <script src="js/eye-tracking-improvements.js"></script>
