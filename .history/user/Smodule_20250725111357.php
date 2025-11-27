@@ -18,15 +18,7 @@ $stmt = $conn->prepare($sql);
 $stmt->bind_param('i', $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
-</script>
-</body>
-</html>ion to set the active page on load
-    setActivePage();
-    
-    console.log('📋 Module listing page loaded - Eye tracking will start when viewing specific modules');
-</script>
-</body>
-</html>e($sql);
+$stmt = $conn->prepare($sql);
 $stmt->bind_param('i', $user_id);
 $stmt->execute();
 $result = $stmt->get_result();

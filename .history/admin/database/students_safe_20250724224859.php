@@ -152,7 +152,7 @@ try {
                         " . (in_array('is_focused', $columns) ? "SUM(CASE WHEN is_focused = 0 THEN duration_seconds ELSE 0 END)" : "0") . " as unfocused_seconds,
                         " . (in_array('duration_seconds', $columns) ? "SUM(duration_seconds)" : "0") . " as total_seconds
                     FROM eye_tracking_sessions 
-                    WHERE user_id = " . $row['id'] . " AND DATE(created_at) = CURDATE()
+                    WHERE user_id = " . $row['id'] . " AND DATE(created_at) = CURDATE()"
                 );
                 
                 if ($todayQuery && $todayData = $todayQuery->fetch_assoc()) {

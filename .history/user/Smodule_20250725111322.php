@@ -14,24 +14,7 @@ if ($conn->connect_error) {
 // Get user information
 $user_id = $_SESSION['user_id'];
 $sql = "SELECT first_name, last_name, email FROM users WHERE id = ?";
-$stmt         }
-
-        console.log('📋 Module listing page loaded - Eye tracking will start when viewing specific modules');
-</script>
-</body>
-</html>function to set the active page on load
-    setActivePage();
-    
-    console.log('📋 Module listing page loaded - Eye tracking will start when viewing specific modules');
-</script>
-</body>
-</html>ion to set the active page on load
-    setActivePage();
-    
-    console.log('📋 Module listing page loaded - Eye tracking will start when viewing specific modules');
-</script>
-</body>
-</html>e($sql);
+$stmt = $conn->prepare($sql);
 $stmt->bind_param('i', $user_id);
 $stmt->execute();
 $result = $stmt->get_result();

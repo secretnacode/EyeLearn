@@ -21,7 +21,7 @@ $result = $stmt->get_result();
 
 if ($result->num_rows > 0) {
     $user = $result->fetch_assoc();
-    
+
     $user_display_name = $user['first_name'] . ' ' . $user['last_name'];
     $user_email = $user['email'];
     $initials = strtoupper(substr($user['first_name'], 0, 1) . substr($user['last_name'], 0, 1));
@@ -69,11 +69,11 @@ while ($module = $result->fetch_assoc()) {
     $completed_sections = json_decode($module['completed_sections'] ?? '[]', true);
     $total_sections = max(1, $module['total_sections']); // Prevent division by zero
     $progress = round((count($completed_sections) / $total_sections) * 100);
-    
+
     // Add progress info to module
     $module['progress'] = $progress;
     $module['completed_count'] = count($completed_sections);
-    
+
     // Sort into appropriate array
     if ($module['completed_sections'] !== null) {
         if ($progress == 100) {
@@ -89,7 +89,7 @@ while ($module = $result->fetch_assoc()) {
 // Handle module start action
 if (isset($_POST['start_module'])) {
     $module_id = intval($_POST['module_id']);
-    
+
     // Insert initial progress record with current timestamp
     $stmt = $conn->prepare("
         INSERT INTO user_module_progress 
@@ -99,21 +99,22 @@ if (isset($_POST['start_module'])) {
         ON DUPLICATE KEY UPDATE 
             last_accessed = NOW()
     ");
-    
+
     $stmt->bind_param("ii", $user_id, $module_id);
     $stmt->execute();
-    
+
     // Redirect to module content
     header("Location: Smodulepart.php?module_id=" . $module_id);
     exit();
 }
 
 // Add this function after database connection
-function timeAgo($timestamp) {
+function timeAgo($timestamp)
+{
     if (!$timestamp) return 'Never';
-    
+
     $diff = time() - strtotime($timestamp);
-    
+
     if ($diff < 60) {
         return 'Just now';
     } elseif ($diff < 3600) {
@@ -130,14 +131,15 @@ function timeAgo($timestamp) {
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EyeLearn - AI-Enhanced E-Learning System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/src/output.css">
-            <!-- Enhanced CV Eye Tracking System -->
-        <script src="js/cv-eye-tracking.js?service_reconnect_<?php echo time(); ?>"></script>
+    <!-- Enhanced CV Eye Tracking System -->
+    <script src="js/cv-eye-tracking.js?service_reconnect_<?php echo time(); ?>"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -159,11 +161,11 @@ function timeAgo($timestamp) {
             background-color: white;
             transition: width 0.3s ease;
         }
-        
+
         .sidebar-collapsed {
             width: 64px;
         }
-        
+
         /* Active indicator */
         .nav-indicator {
             position: absolute;
@@ -174,26 +176,26 @@ function timeAgo($timestamp) {
             background-color: #3B82F6;
             opacity: 0;
         }
-        
+
         .nav-item.active .nav-indicator {
             opacity: 1;
         }
-        
+
         .nav-item.active {
             background-color: #F0F7FF;
         }
-        
+
         /* Content area */
         .main-content {
             margin-left: 240px;
             transition: margin-left 0.3s ease;
         }
-        
+
         .main-content-collapsed {
             margin-left: 64px;
         }
-        
-            /* Profile dropdown */
+
+        /* Profile dropdown */
         .profile-dropdown {
             display: none;
             position: absolute;
@@ -205,10 +207,12 @@ function timeAgo($timestamp) {
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             z-index: 50;
             pointer-events: auto;
-        }        .profile-dropdown.show {
+        }
+
+        .profile-dropdown.show {
             display: block;
         }
-        
+
         /* Responsive behavior */
         @media (max-width: 768px) {
             .sidebar {
@@ -217,15 +221,15 @@ function timeAgo($timestamp) {
                 z-index: 50;
                 height: 100%;
             }
-            
+
             .sidebar.mobile-visible {
                 transform: translateX(0);
             }
-            
+
             .main-content {
                 margin-left: 0;
             }
-            
+
             .backdrop {
                 background-color: rgba(0, 0, 0, 0.5);
                 position: fixed;
@@ -236,7 +240,7 @@ function timeAgo($timestamp) {
                 z-index: 40;
                 display: none;
             }
-            
+
             .backdrop.active {
                 display: block;
             }
@@ -244,6 +248,7 @@ function timeAgo($timestamp) {
     </style>
 </head>
 </head>
+
 <body class="bg-background">
     <!-- Top Navigation Bar -->
     <nav class="fixed top-0 left-0 right-0 h-16 bg-white shadow-md z-30 flex items-center justify-between px-4">
@@ -256,10 +261,10 @@ function timeAgo($timestamp) {
             </button>
             <h1 class="text-xl font-bold text-primary">EyeLearn</h1>
         </div>
-        
+
         <!-- Right side - Notifications and Profile -->
         <div class="flex items-center space-x-4">
-            
+
             <!-- Profile dropdown -->
             <div class="profile-container relative">
                 <button id="profile-toggle" class="flex items-center space-x-2 focus:outline-none">
@@ -268,13 +273,13 @@ function timeAgo($timestamp) {
                     </div>
                     <span class="hidden md:inline-block font-medium text-gray-700"><?php echo htmlspecialchars($user_display_name); ?></span>
                 </button>
-                
+
                 <!-- Dropdown menu -->
                 <div id="profile-dropdown" class="profile-dropdown">
-                <div class="p-4 border-b">
-    <p class="font-medium text-gray-800"><?php echo htmlspecialchars($user_display_name); ?></p>
-    <p class="text-sm text-gray-500"><?php echo htmlspecialchars($user_email); ?></p>
-</div>
+                    <div class="p-4 border-b">
+                        <p class="font-medium text-gray-800"><?php echo htmlspecialchars($user_display_name); ?></p>
+                        <p class="text-sm text-gray-500"><?php echo htmlspecialchars($user_email); ?></p>
+                    </div>
                     <div class="p-2">
                         <a href="#" onclick="openProfileModal()" class="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded">Your Profile</a>
                         <a href="../logout.php" onclick="handleLogout(event)" class="block px-4 py-2 text-red-600 hover:bg-red-50 rounded">Logout</a>
@@ -283,11 +288,11 @@ function timeAgo($timestamp) {
             </div>
         </div>
     </nav>
-    
+
     <div class="flex min-h-screen pt-16">
         <!-- Mobile backdrop -->
         <div id="backdrop" class="backdrop"></div>
-        
+
         <!-- Sidebar -->
         <div id="sidebar" class="sidebar fixed left-0 top-16 h-full shadow-lg z-40 flex flex-col transition-all duration-300 ease-in-out">
             <!-- Navigation -->
@@ -303,7 +308,7 @@ function timeAgo($timestamp) {
                             <span class="font-medium ml-4 nav-text">Dashboard</span>
                         </a>
                     </li>
-                    
+
                     <!-- Modules -->
                     <li class="nav-item relative" id="modules-item">
                         <div class="nav-indicator"></div>
@@ -314,7 +319,7 @@ function timeAgo($timestamp) {
                             <span class="font-medium ml-4 nav-text">Modules</span>
                         </a>
                     </li>
-                    
+
                     <!-- Assessments -->
                     <li class="nav-item relative" id="assessments-item">
                         <div class="nav-indicator"></div>
@@ -325,11 +330,11 @@ function timeAgo($timestamp) {
                             <span class="font-medium ml-4 nav-text">Assessment History</span>
                         </a>
                     </li>
-                    
+
                 </ul>
             </nav>
         </div>
-        
+
         <!-- Mobile Header -->
         <div class="md:hidden fixed top-0 left-0 right-0 bg-white shadow-md z-30 flex items-center justify-between p-4">
             <button id="mobile-menu-toggle" class="text-gray-700">
@@ -344,186 +349,186 @@ function timeAgo($timestamp) {
                 </svg>
             </div>
         </div>
-            
-                
+
+
         <main id="main-content" class="main-content flex-1 p-6 md:p-8 transition-all duration-300">
-    <!-- Live Feed Box (Hidden by default, shown when tracking) -->
-    <div id="live-feed-container" style="position: fixed; top: 80px; right: 20px; z-index: 1000; background: white; border: 2px solid #007bff; border-radius: 8px; padding: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.3); display: none;">
-        <h4 style="margin: 0 0 10px 0; font-size: 14px; color: #007bff;">Live Camera Feed</h4>
-        <img id="tracking-video" alt="Camera feed will appear here" style="width: 320px; height: 240px; background-color: #000; border-radius: 4px;">
-        <button onclick="stopModuleTracking()" style="width: 100%; margin-top: 10px; padding: 5px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">Stop Tracking</button>
-    </div>
-    
-    <div class="container mx-auto">
-        <div class="flex justify-between items-center mb-8">
-            <h1 class="text-3xl font-bold text-primary">Learning Modules</h1>
-            <div class="hidden md:block">
-                <div class="relative">
-                    <input type="text" placeholder="Search modules..." class="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
-                    <svg class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                    </svg>
-                </div>
+            <!-- Live Feed Box (Hidden by default, shown when tracking) -->
+            <div id="live-feed-container" style="position: fixed; top: 80px; right: 20px; z-index: 1000; background: white; border: 2px solid #007bff; border-radius: 8px; padding: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.3); display: none;">
+                <h4 style="margin: 0 0 10px 0; font-size: 14px; color: #007bff;">Live Camera Feed</h4>
+                <img id="tracking-video" alt="Camera feed will appear here" style="width: 320px; height: 240px; background-color: #000; border-radius: 4px;">
+                <button onclick="stopModuleTracking()" style="width: 100%; margin-top: 10px; padding: 5px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">Stop Tracking</button>
             </div>
-        </div>
 
-        <!-- In Progress Section -->
-        <div class="mb-10">
-            <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
-                <svg class="w-5 h-5 mr-2 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                In Progress
-            </h2>
-            
-            <!-- Module Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <?php if (!empty($in_progress_modules)): ?>
-                    <?php foreach ($in_progress_modules as $module): ?>
-                        <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
-                            <div class="flex justify-between items-start mb-4">
-                                <h3 class="text-xl font-semibold text-gray-800"><?php echo htmlspecialchars($module['title']); ?></h3>
-                            </div>
-                            <div class="mb-6">
-                                <div class="flex justify-between text-sm mb-1">
-                                    <span class="text-gray-600">Progress</span>
-                                    <span class="font-medium"><?php echo $module['progress']; ?>%</span>
-                                </div>
-                                <div class="w-full bg-gray-200 rounded-full h-2">
-                                    <div class="bg-primary h-2 rounded-full" style="width: <?php echo $module['progress']; ?>%"></div>
-                                </div>
-                            </div>
-                            <div class="flex items-center text-sm text-gray-500 mb-6">
-                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                                <span>Last accessed: <?php echo timeAgo($module['last_accessed']); ?></span>
-                            </div>
-                            <form action="Smodulepart.php" method="get" class="w-full">
-                                <input type="hidden" name="module_id" value="<?php echo $module['id']; ?>">
-                                <button class="w-full bg-secondary text-white py-2.5 rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center font-medium">
-                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
-                                    </svg>
-                                    Continue Learning
-                                </button>
-                            </form>
-                        </div>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <div class="col-span-full p-6 bg-gray-50 rounded-lg text-center">
-                        <p class="text-gray-500">No modules in progress. Start learning by selecting a module below!</p>
-                    </div>
-                <?php endif; ?>
-            </div>
-        </div>
-
-        <!-- Completed Modules Section -->
-        <div class="mb-10">
-            <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
-                <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                Completed Modules
-            </h2>
-            
-            <!-- Completed Module Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <?php if (!empty($completed_modules)): ?>
-                    <?php foreach ($completed_modules as $module): ?>
-                        <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
-                            <div class="flex justify-between items-start mb-4">
-                                <h3 class="text-xl font-semibold text-gray-800"><?php echo htmlspecialchars($module['title']); ?></h3>
-                            </div>
-                            <div class="mb-6">
-                                <div class="flex justify-between text-sm mb-1">
-                                    <span class="text-gray-600">Completed</span>
-                                    <span class="font-medium text-green-600">100%</span>
-                                </div>
-                                <div class="w-full bg-gray-200 rounded-full h-2">
-                                    <div class="bg-green-600 h-2 rounded-full w-full"></div>
-                                </div>
-                            </div>
-                            <div class="flex items-center text-sm text-gray-500 mb-6">
-                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                                <span>Last accessed: <?php echo timeAgo($module['last_accessed']); ?></span>
-                            </div>
-                            <form action="Smodulepart.php" method="get" class="w-full">
-                                <input type="hidden" name="module_id" value="<?php echo $module['id']; ?>">
-                                <button class="w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center font-medium">
-                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                    </svg>
-                                    Review Module
-                                </button>
-                            </form>
-                        </div>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <div class="col-span-full p-6 bg-gray-50 rounded-lg text-center">
-                        <p class="text-gray-500">No completed modules yet. Keep learning!</p>
-                    </div>
-                <?php endif; ?>
-            </div>
-        </div>
-
-        <!-- Available Modules -->
-        <div class="mb-8">
-    <h2 class="text-xl font-semibold mb-6 text-gray-800 flex items-center">
-        <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-        </svg>
-        Available Modules
-    </h2>
-    
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <?php foreach ($available_modules as $module): ?>
-            <div class="bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col">
-                <?php if (!empty($module['image_path'])) : ?>
-                    <div class="relative h-48 overflow-hidden">
-                        <img src="<?php echo htmlspecialchars($module['image_path']); ?>" 
-                             alt="<?php echo htmlspecialchars($module['title']); ?>" 
-                             class="w-full h-full object-cover transition-transform duration-300 hover:scale-105">
-                    </div>
-                <?php endif; ?>
-                
-                <div class="p-6 flex flex-col flex-grow">
-                    <div class="flex justify-between items-start mb-3">
-                        <h3 class="text-lg font-semibold text-gray-800 line-clamp-2">
-                            <?php echo htmlspecialchars($module['title']); ?>
-                        </h3>
-                    </div>
-                    
-                    <p class="text-gray-600 text-sm mb-6 line-clamp-3 flex-grow">
-                        <?php echo htmlspecialchars($module['description']); ?>
-                    </p>
-                    
-                    <form method="post" class="w-full">
-                        <input type="hidden" name="module_id" value="<?php echo $module['id']; ?>">
-                        <input type="hidden" name="start_module" value="1">
-                        <button type="submit" class="w-full bg-secondary text-white py-2.5 px-4 rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center font-medium group">
-                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+            <div class="container mx-auto">
+                <div class="flex justify-between items-center mb-8">
+                    <h1 class="text-3xl font-bold text-primary">Learning Modules</h1>
+                    <div class="hidden md:block">
+                        <div class="relative">
+                            <input type="text" placeholder="Search modules..." class="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <svg class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                             </svg>
-                            Start Learning
-                        </button>
-                    </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- In Progress Section -->
+                <div class="mb-10">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        In Progress
+                    </h2>
+
+                    <!-- Module Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <?php if (!empty($in_progress_modules)): ?>
+                            <?php foreach ($in_progress_modules as $module): ?>
+                                <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
+                                    <div class="flex justify-between items-start mb-4">
+                                        <h3 class="text-xl font-semibold text-gray-800"><?php echo htmlspecialchars($module['title']); ?></h3>
+                                    </div>
+                                    <div class="mb-6">
+                                        <div class="flex justify-between text-sm mb-1">
+                                            <span class="text-gray-600">Progress</span>
+                                            <span class="font-medium"><?php echo $module['progress']; ?>%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div class="bg-primary h-2 rounded-full" style="width: <?php echo $module['progress']; ?>%"></div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center text-sm text-gray-500 mb-6">
+                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        <span>Last accessed: <?php echo timeAgo($module['last_accessed']); ?></span>
+                                    </div>
+                                    <form action="Smodulepart.php" method="get" class="w-full">
+                                        <input type="hidden" name="module_id" value="<?php echo $module['id']; ?>">
+                                        <button class="w-full bg-secondary text-white py-2.5 rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center font-medium">
+                                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                                            </svg>
+                                            Continue Learning
+                                        </button>
+                                    </form>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div class="col-span-full p-6 bg-gray-50 rounded-lg text-center">
+                                <p class="text-gray-500">No modules in progress. Start learning by selecting a module below!</p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <!-- Completed Modules Section -->
+                <div class="mb-10">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Completed Modules
+                    </h2>
+
+                    <!-- Completed Module Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <?php if (!empty($completed_modules)): ?>
+                            <?php foreach ($completed_modules as $module): ?>
+                                <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
+                                    <div class="flex justify-between items-start mb-4">
+                                        <h3 class="text-xl font-semibold text-gray-800"><?php echo htmlspecialchars($module['title']); ?></h3>
+                                    </div>
+                                    <div class="mb-6">
+                                        <div class="flex justify-between text-sm mb-1">
+                                            <span class="text-gray-600">Completed</span>
+                                            <span class="font-medium text-green-600">100%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div class="bg-green-600 h-2 rounded-full w-full"></div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center text-sm text-gray-500 mb-6">
+                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        <span>Last accessed: <?php echo timeAgo($module['last_accessed']); ?></span>
+                                    </div>
+                                    <form action="Smodulepart.php" method="get" class="w-full">
+                                        <input type="hidden" name="module_id" value="<?php echo $module['id']; ?>">
+                                        <button class="w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center font-medium">
+                                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                            </svg>
+                                            Review Module
+                                        </button>
+                                    </form>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div class="col-span-full p-6 bg-gray-50 rounded-lg text-center">
+                                <p class="text-gray-500">No completed modules yet. Keep learning!</p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <!-- Available Modules -->
+                <div class="mb-8">
+                    <h2 class="text-xl font-semibold mb-6 text-gray-800 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                        Available Modules
+                    </h2>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <?php foreach ($available_modules as $module): ?>
+                            <div class="bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col">
+                                <?php if (!empty($module['image_path'])) : ?>
+                                    <div class="relative h-48 overflow-hidden">
+                                        <img src="<?php echo htmlspecialchars($module['image_path']); ?>"
+                                            alt="<?php echo htmlspecialchars($module['title']); ?>"
+                                            class="w-full h-full object-cover transition-transform duration-300 hover:scale-105">
+                                    </div>
+                                <?php endif; ?>
+
+                                <div class="p-6 flex flex-col #dc3545grow">
+                                    <div class="flex justify-between items-start mb-3">
+                                        <h3 class="text-lg font-semibold text-gray-800 line-clamp-2">
+                                            <?php echo htmlspecialchars($module['title']); ?>
+                                        </h3>
+                                    </div>
+
+                                    <p class="text-gray-600 text-sm mb-6 line-clamp-3 grow">
+                                        <?php echo htmlspecialchars($module['description']); ?>
+                                    </p>
+
+                                    <form method="post" class="w-full">
+                                        <input type="hidden" name="module_id" value="<?php echo $module['id']; ?>">
+                                        <input type="hidden" name="start_module" value="1">
+                                        <button type="submit" class="w-full bg-secondary text-white py-2.5 px-4 rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center font-medium group">
+                                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                                            </svg>
+                                            Start Learning
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
             </div>
-        <?php endforeach; ?>
     </div>
-</div>
-                </div>
-            </div>
-        </div>
     </div>
-</main>
+    </div>
+    </main>
     </div>
     <!-- Profile Modal -->
-    <div id="profileModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50 flex items-center justify-center">
+    <div id="profileModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center">
         <div class="relative mx-auto p-8 border w-[480px] shadow-lg rounded-lg bg-white">
             <!-- Profile Header -->
             <div class="text-center mb-6">
@@ -544,17 +549,17 @@ function timeAgo($timestamp) {
                         <label class="block text-gray-700 text-sm font-semibold mb-2" for="firstName">
                             First Name
                         </label>
-                        <input type="text" id="firstName" name="first_name" 
-                               value="<?php echo htmlspecialchars($user['first_name']); ?>"
-                               class="shadow-sm border border-gray-300 rounded-md w-full py-2 px-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <input type="text" id="firstName" name="first_name"
+                            value="<?php echo htmlspecialchars($user['first_name']); ?>"
+                            class="shadow-sm border border-gray-300 rounded-md w-full py-2 px-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
                     </div>
                     <div>
                         <label class="block text-gray-700 text-sm font-semibold mb-2" for="lastName">
                             Last Name
                         </label>
-                        <input type="text" id="lastName" name="last_name" 
-                               value="<?php echo htmlspecialchars($user['last_name']); ?>"
-                               class="shadow-sm border border-gray-300 rounded-md w-full py-2 px-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <input type="text" id="lastName" name="last_name"
+                            value="<?php echo htmlspecialchars($user['last_name']); ?>"
+                            class="shadow-sm border border-gray-300 rounded-md w-full py-2 px-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
                     </div>
                 </div>
 
@@ -562,8 +567,8 @@ function timeAgo($timestamp) {
                     <label class="block text-gray-700 text-sm font-semibold mb-2" for="gender">
                         Gender
                     </label>
-                    <select id="gender" name="gender" 
-                            class="shadow-sm border border-gray-300 rounded-md w-full py-2 px-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    <select id="gender" name="gender"
+                        class="shadow-sm border border-gray-300 rounded-md w-full py-2 px-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
                         <option value="male" <?php echo ($user['gender'] ?? '') === 'male' ? 'selected' : ''; ?>>Male</option>
                         <option value="female" <?php echo ($user['gender'] ?? '') === 'female' ? 'selected' : ''; ?>>Female</option>
                     </select>
@@ -572,11 +577,11 @@ function timeAgo($timestamp) {
                 <div class="bg-gray-50 -mx-8 -mb-8 px-8 py-4 rounded-b-lg mt-6">
                     <div class="flex justify-end space-x-3">
                         <button type="button" onclick="closeProfileModal()"
-                                class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300 font-medium">
+                            class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300 font-medium">
                             Cancel
                         </button>
                         <button type="submit"
-                                class="px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 font-medium">
+                            class="px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 font-medium">
                             Save Changes
                         </button>
                     </div>
@@ -588,74 +593,74 @@ function timeAgo($timestamp) {
     <!-- Main Content -->
     <script>
         // DOM Elements
-    const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
-    const toggleSidebarBtn = document.getElementById('toggle-sidebar');
-    const sidebar = document.getElementById('sidebar');
-    const mainContent = document.getElementById('main-content');
-    const navTexts = document.querySelectorAll('.nav-text');
-    const backdrop = document.getElementById('backdrop');
-    
-    // Navigation items
-    const dashboardItem = document.getElementById('dashboard-item');
-    const modulesItem = document.getElementById('modules-item');
-    const assessmentsItem = document.getElementById('assessments-item');
-        
-    // Navigation links
-    const dashboardLink = document.getElementById('dashboard-link');
-    const modulesLink = document.getElementById('modules-link');
-    const assessmentsLink = document.getElementById('assessments-link');
-    
-    
-    // Profile dropdown elements
-    const profileToggle = document.getElementById('profile-toggle');
-    const profileDropdown = document.getElementById('profile-dropdown');
-    
-    // Toggle profile dropdown on click
-    profileToggle.addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        profileDropdown.classList.toggle('show');
-    });
-    
-    // Add handler for logout link
-    document.querySelector('#profile-dropdown a[href*="logout"]').addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        window.location.href = this.href;
-    });
-    
-    // Close dropdown when clicking elsewhere on the page
-    document.addEventListener('click', function(e) {
-        if (!profileToggle.contains(e.target) && !profileDropdown.contains(e.target)) {
-            profileDropdown.classList.remove('show');
-        }
-    });
-    
-    // Function to handle active page styling
-    function setActivePage() {
-        const currentPage = window.location.pathname.split('/').pop();
-        
-        // Reset all links
-        [dashboardItem, modulesItem, assessmentsItem].forEach(item => {
-            item.classList.remove('active');
-        });
-        
-        // Highlight active link based on current page
-        if (currentPage === 'Sdashboard.php' || currentPage === '' || currentPage === '/') {
-            dashboardItem.classList.add('active');
-        } else if (currentPage === 'Smodule.php') {
-            modulesItem.classList.add('active');
-        } else if (currentPage === 'Sassessment.php') {
-            assessmentsItem.classList.add('active');
-        } else {
-            dashboardItem.classList.add('active');
-        }
-    }
+        const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+        const toggleSidebarBtn = document.getElementById('toggle-sidebar');
+        const sidebar = document.getElementById('sidebar');
+        const mainContent = document.getElementById('main-content');
+        const navTexts = document.querySelectorAll('.nav-text');
+        const backdrop = document.getElementById('backdrop');
 
-    // Set active page on load
-    setActivePage();
-    
-    // Profile modal functions
+        // Navigation items
+        const dashboardItem = document.getElementById('dashboard-item');
+        const modulesItem = document.getElementById('modules-item');
+        const assessmentsItem = document.getElementById('assessments-item');
+
+        // Navigation links
+        const dashboardLink = document.getElementById('dashboard-link');
+        const modulesLink = document.getElementById('modules-link');
+        const assessmentsLink = document.getElementById('assessments-link');
+
+
+        // Profile dropdown elements
+        const profileToggle = document.getElementById('profile-toggle');
+        const profileDropdown = document.getElementById('profile-dropdown');
+
+        // Toggle profile dropdown on click
+        profileToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            profileDropdown.classList.toggle('show');
+        });
+
+        // Add handler for logout link
+        document.querySelector('#profile-dropdown a[href*="logout"]').addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            window.location.href = this.href;
+        });
+
+        // Close dropdown when clicking elsewhere on the page
+        document.addEventListener('click', function(e) {
+            if (!profileToggle.contains(e.target) && !profileDropdown.contains(e.target)) {
+                profileDropdown.classList.remove('show');
+            }
+        });
+
+        // Function to handle active page styling
+        function setActivePage() {
+            const currentPage = window.location.pathname.split('/').pop();
+
+            // Reset all links
+            [dashboardItem, modulesItem, assessmentsItem].forEach(item => {
+                item.classList.remove('active');
+            });
+
+            // Highlight active link based on current page
+            if (currentPage === 'Sdashboard.php' || currentPage === '' || currentPage === '/') {
+                dashboardItem.classList.add('active');
+            } else if (currentPage === 'Smodule.php') {
+                modulesItem.classList.add('active');
+            } else if (currentPage === 'Sassessment.php') {
+                assessmentsItem.classList.add('active');
+            } else {
+                dashboardItem.classList.add('active');
+            }
+        }
+
+        // Set active page on load
+        setActivePage();
+
+        // Profile modal functions
         function openProfileModal() {
             document.getElementById('profileModal').classList.remove('hidden');
             document.getElementById('profile-dropdown').classList.remove('show');
@@ -667,39 +672,39 @@ function timeAgo($timestamp) {
 
         document.getElementById('profileForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
+
             const formData = new FormData(this);
-            
+
             try {
                 const response = await fetch('profile_update.php', {
                     method: 'POST',
                     body: formData
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
                     // Update UI with new values
                     const fullName = `${formData.get('first_name')} ${formData.get('last_name')}`;
                     document.querySelector('#profile-toggle .font-medium').textContent = fullName;
                     document.querySelector('#profile-toggle .bg-primary').textContent = result.data.initials;
                     document.querySelector('#profile-dropdown .font-medium').textContent = fullName;
-                    
+
                     // Update modal header
                     const modalHeader = document.querySelector('#profileModal .text-xl');
                     if (modalHeader) {
                         modalHeader.textContent = fullName;
                     }
-                    
+
                     closeProfileModal();
-                    
+
                     // Show success notification
                     const notification = document.createElement('div');
                     notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg';
                     notification.textContent = 'Profile updated successfully!';
                     document.body.appendChild(notification);
                     setTimeout(() => notification.remove(), 3000);
-                    
+
                 } else {
                     throw new Error(result.message || 'Failed to update profile');
                 }
@@ -723,12 +728,13 @@ function timeAgo($timestamp) {
         });
 
         // Add this function near your other JavaScript code
-function handleLogout(e) {
-    e.preventDefault();
-    if (confirm('Are you sure you want to logout?')) {
-        window.location.href = '../logout.php';
-    }
-}
+        function handleLogout(e) {
+            e.preventDefault();
+            if (confirm('Are you sure you want to logout?')) {
+                window.location.href = '../logout.php';
+            }
+        }
     </script>
 </body>
+
 </html>

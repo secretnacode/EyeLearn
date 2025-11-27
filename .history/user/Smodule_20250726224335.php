@@ -339,13 +339,13 @@ if ($result->num_rows > 0) {
                     </div>
                     <?php endif; ?>
                     
-                    <div class="p-6 flex flex-col flex-grow">
+                    <div class="p-6 flex flex-col grow">
                         <div class="flex justify-between items-start mb-3">
                             <h3 class="text-lg font-semibold text-gray-800 line-clamp-2"><?php echo htmlspecialchars($row['title']); ?></h3>
                             <span class="bg-blue-100 text-primary text-xs px-2 py-1 rounded-full font-medium ml-2 whitespace-nowrap">Published</span>
                         </div>
                         
-                        <p class="text-gray-600 text-sm mb-6 line-clamp-3 flex-grow"><?php echo htmlspecialchars($row['description']); ?></p>
+                        <p class="text-gray-600 text-sm mb-6 line-clamp-3 grow"><?php echo htmlspecialchars($row['description']); ?></p>
                         
                         <div class="mt-auto">
                         <form action="Smodulepart.php" method="get" class="w-full">
