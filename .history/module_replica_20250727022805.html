@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Module Page Replica</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="user/js/cv-eye-tracking.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="min-h-screen">
+        <!-- Main content area -->
+        <div class="p-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-6">EyeLearn - Module Page</h1>
+            
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4">Sample Module Content</h2>
+                <p class="text-gray-600 mb-4">
+                    This is a test page that replicates the module page structure. 
+                    The CV Eye Tracking widget should appear in the top-right corner.
+                </p>
+                
+                <div class="bg-blue-50 border border-blue-200 rounded p-4">
+                    <p class="text-blue-800">
+                        <strong>Instructions:</strong>
+                    </p>
+                    <ol class="list-decimal list-inside text-blue-700 mt-2">
+                        <li>Look for the CV Eye Tracking widget in the top-right corner</li>
+                        <li>Click "Show Video" to display the webcam feed</li>
+                        <li>Click the magnifying glass (🔍) for fullscreen view</li>
+                        <li>Check the browser console (F12) for any error messages</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        console.log('🚀 Module page replica loaded');
+        console.log('Available classes:', typeof CVEyeTrackingSystem);
+        
+        // Wait for page to be fully loaded
+        window.addEventListener('load', () => {
+            console.log('📄 Page fully loaded, initializing CV Eye Tracking...');
+            
+            try {
+                // Initialize Computer Vision Eye Tracking System
+                console.log('🎯 Creating CVEyeTrackingSystem instance...');
+                window.cvEyeTracker = new CVEyeTrackingSystem('test_module', 'main_content');
+                console.log('✅ CV Eye Tracking System initialized successfully');
+                
+                // Log widget creation after a short delay
+                setTimeout(() => {
+                    const widget = document.getElementById('cv-eye-tracking-interface');
+                    console.log('🔍 Widget element check:', {
+                        exists: !!widget,
+                        visible: widget ? getComputedStyle(widget).display !== 'none' : false,
+                        position: widget ? widget.getBoundingClientRect() : null
+                    });
+                }, 2000);
+                
+            } catch (error) {
+                console.error('❌ Failed to initialize CV Eye Tracking System:', error);
+                console.error('Error details:', error.stack);
+                
+                // Show error on page
+                document.body.innerHTML += `
+                    <div style="position: fixed; top: 20px; left: 20px; background: #f8d7da; color: #721c24; padding: 20px; border-radius: 5px; max-width: 400px; z-index: 9999;">
+                        <strong>CV Eye Tracking Error:</strong><br>
+                        ${error.message}
+                    </div>
+                `;
+            }
+        });
+        
+        // Log any unhandled errors
+        window.addEventListener('error', (event) => {
+            console.error('🚨 Unhandled error:', event.error);
+        });
+        
+        // Check service availability
+        async function checkService() {
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/health');
+                const data = await response.json();
+                console.log('🔗 Service check:', data.success ? '✅ Available' : '❌ Error');
+            } catch (error) {
+                console.log('🔗 Service check: ❌ Not available -', error.message);
+            }
+        }
+        
+        // Check service after page load
+        setTimeout(checkService, 1000);
+    </script>
+</body>
+</html>

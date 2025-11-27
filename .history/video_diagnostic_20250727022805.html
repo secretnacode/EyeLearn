@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CV Eye Tracking Video Diagnostic</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            background: #f0f0f0; 
+        }
+        .container { 
+            max-width: 1000px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 20px; 
+            border-radius: 10px; 
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .info { background: #d1ecf1; border-color: #bee5eb; }
+        button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #005a9e; }
+        .video-container {
+            border: 2px solid #007acc;
+            padding: 10px;
+            margin: 10px 0;
+            text-align: center;
+        }
+        #test-video {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+        }
+        .logs {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔬 CV Eye Tracking Video Diagnostic</h1>
+        
+        <div class="test-section info">
+            <h3>Step 1: Service Connection Test</h3>
+            <button onclick="testServiceConnection()">Test Python Service</button>
+            <div id="service-status">Click button to test...</div>
+        </div>
+        
+        <div class="test-section info">
+            <h3>Step 2: Frame Request Test</h3>
+            <button onclick="testSingleFrame()">Request Single Frame</button>
+            <div id="frame-status">Click button to test...</div>
+        </div>
+        
+        <div class="test-section info">
+            <h3>Step 3: Video Display Test</h3>
+            <button onclick="startVideoStream()">Start Video Stream</button>
+            <button onclick="stopVideoStream()">Stop Video Stream</button>
+            <div id="video-status">Click button to test...</div>
+            
+            <div class="video-container">
+                <img id="test-video" src="" alt="Video will appear here" />
+                <div>Video Feed (should show live webcam with annotations)</div>
+            </div>
+        </div>
+        
+        <div class="test-section info">
+            <h3>Step 4: CV Eye Tracking Widget Test</h3>
+            <button onclick="testCVEyeTracking()">Initialize CV Eye Tracking</button>
+            <div id="cv-status">Click button to test...</div>
+        </div>
+        
+        <div class="test-section info">
+            <h3>Debug Logs</h3>
+            <div id="debug-logs" class="logs">Diagnostic logs will appear here...\n</div>
+        </div>
+    </div>
+
+    <!-- Include the CV Eye Tracking script -->
+    <script src="user/js/cv-eye-tracking.js"></script>
+
+    <script>
+        let videoInterval = null;
+        let cvTracker = null;
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logElement = document.getElementById('debug-logs');
+            logElement.textContent += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(message);
+        }
+
+        function updateStatus(elementId, message, isSuccess = null) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            if (isSuccess === true) {
+                element.className = 'success';
+            } else if (isSuccess === false) {
+                element.className = 'error';
+            }
+        }
+
+        async function testServiceConnection() {
+            log('Testing service connection...');
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/health');
+                const data = await response.json();
+                
+                if (data.success) {
+                    updateStatus('service-status', '✅ Python service connected successfully', true);
+                    log('✅ Service connection successful');
+                } else {
+                    updateStatus('service-status', '❌ Service responded but with error', false);
+                    log('❌ Service error: ' + JSON.stringify(data));
+                }
+            } catch (error) {
+                updateStatus('service-status', '❌ Cannot connect to Python service: ' + error.message, false);
+                log('❌ Connection error: ' + error.message);
+            }
+        }
+
+        async function testSingleFrame() {
+            log('Testing single frame request...');
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/frame');
+                const data = await response.json();
+                
+                if (data.success && data.frame) {
+                    updateStatus('frame-status', `✅ Frame received (${data.frame.length} chars)`, true);
+                    log('✅ Frame data received successfully');
+                    
+                    // Try to display the frame
+                    const img = document.getElementById('test-video');
+                    img.src = `data:image/jpeg;base64,${data.frame}`;
+                    img.onload = () => {
+                        log('✅ Frame displayed successfully in image element');
+                    };
+                    img.onerror = (error) => {
+                        log('❌ Failed to display frame in image element: ' + error);
+                    };
+                } else {
+                    updateStatus('frame-status', '❌ No frame data received', false);
+                    log('❌ No frame data: ' + JSON.stringify(data));
+                }
+            } catch (error) {
+                updateStatus('frame-status', '❌ Frame request failed: ' + error.message, false);
+                log('❌ Frame request error: ' + error.message);
+            }
+        }
+
+        function startVideoStream() {
+            if (videoInterval) {
+                log('Video stream already running');
+                return;
+            }
+
+            log('Starting video stream...');
+            updateStatus('video-status', 'Starting video stream...', null);
+            
+            videoInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('http://127.0.0.1:5000/api/frame');
+                    const data = await response.json();
+                    
+                    if (data.success && data.frame) {
+                        const img = document.getElementById('test-video');
+                        img.src = `data:image/jpeg;base64,${data.frame}`;
+                        updateStatus('video-status', '✅ Video stream running', true);
+                    } else {
+                        log('⚠️ No frame in video stream response');
+                    }
+                } catch (error) {
+                    log('⚠️ Video stream error: ' + error.message);
+                }
+            }, 200);
+            
+            log('✅ Video stream started (200ms interval)');
+        }
+
+        function stopVideoStream() {
+            if (videoInterval) {
+                clearInterval(videoInterval);
+                videoInterval = null;
+                updateStatus('video-status', '⏹️ Video stream stopped', null);
+                log('⏹️ Video stream stopped');
+            } else {
+                log('Video stream was not running');
+            }
+        }
+
+        function testCVEyeTracking() {
+            log('Testing CV Eye Tracking widget...');
+            try {
+                if (typeof CVEyeTrackingSystem === 'undefined') {
+                    updateStatus('cv-status', '❌ CVEyeTrackingSystem class not found', false);
+                    log('❌ CVEyeTrackingSystem class not loaded');
+                    return;
+                }
+
+                cvTracker = new CVEyeTrackingSystem('test_module', 'test_section');
+                updateStatus('cv-status', '✅ CV Eye Tracking initialized', true);
+                log('✅ CVEyeTrackingSystem created successfully');
+                
+                // Give it a moment to initialize
+                setTimeout(() => {
+                    log('CV Eye Tracking widget should now be visible in top-right corner');
+                }, 2000);
+                
+            } catch (error) {
+                updateStatus('cv-status', '❌ CV Eye Tracking failed: ' + error.message, false);
+                log('❌ CVEyeTrackingSystem error: ' + error.message);
+            }
+        }
+
+        // Auto-run basic tests on page load
+        window.addEventListener('load', async () => {
+            log('🚀 Diagnostic page loaded');
+            log('Starting automatic tests...');
+            
+            await testServiceConnection();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await testSingleFrame();
+            
+            log('Automatic tests completed. Use buttons above for manual testing.');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,110 @@
+<!-- Add this in Smodulepart.php head section, after existing script tags -->
+
+<!-- Socket.IO Client Library -->
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
+<!-- WebSocket Webcam Capture -->
+<script src="js/webcam-websocket.js"></script>
+
+<script>
+// Initialize WebSocket Eye Tracking when CV tracking starts
+(function() {
+    let webcamSocket = null;
+    
+    // Override the existing CV eye tracking initialization
+    const originalInitEyeTracking = window.initEyeTracking || function() {};
+    
+    window.initEyeTracking = function(userId, moduleId, sectionId) {
+        console.log('🚀 Initializing WebSocket Eye Tracking');
+        
+        // Create WebSocket connection
+        webcamSocket = new WebcamWebSocket({
+            onTrackingUpdate: function(data) {
+                // Update UI with tracking data
+                if (data.is_focused !== undefined) {
+                    updateFocusStatus(data.is_focused);
+                }
+                
+                if (data.metrics) {
+                    updateMetricsDisplay(data.metrics);
+                }
+            },
+            onConnectionChange: function(connected) {
+                if (connected) {
+                    console.log('✅ Connected to eye tracking server');
+                    showTrackingStatus('connected');
+                } else {
+                    console.log('❌ Disconnected from eye tracking server');
+                    showTrackingStatus('disconnected');
+                }
+            },
+            onError: function(error) {
+                console.error('❌ Eye tracking error:', error);
+                
+                if (error.type === 'CAMERA_PERMISSION_DENIED') {
+                    showCameraPermissionError();
+                } else if (error.type === 'NO_CAMERA') {
+                    showNoCameraError();
+                } else {
+                    showGeneralError(error.message);
+                }
+            }
+        });
+        
+        // Initialize WebSocket connection
+        webcamSocket.initialize(userId, moduleId, sectionId);
+        
+        // Call original initialization if it exists
+        originalInitEyeTracking(userId, moduleId, sectionId);
+    };
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+        if (webcamSocket) {
+            webcamSocket.disconnect();
+        }
+    });
+    
+    // Helper functions for UI updates
+    function updateFocusStatus(isFocused) {
+        const statusElement = document.getElementById('focus-status');
+        if (statusElement) {
+            statusElement.textContent = isFocused ? 'Focused' : 'Unfocused';
+            statusElement.className = isFocused ? 'status-focused' : 'status-unfocused';
+        }
+    }
+    
+    function updateMetricsDisplay(metrics) {
+        const elements = {
+            'session-time': metrics.total_time,
+            'focus-time': metrics.focused_time,
+            'unfocus-time': metrics.unfocused_time,
+            'focus-percentage': metrics.focus_percentage
+        };
+        
+        for (const [id, value] of Object.entries(elements)) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.textContent = value;
+            }
+        }
+    }
+    
+    function showTrackingStatus(status) {
+        // Show connection status to user
+        console.log('Tracking status:', status);
+    }
+    
+    function showCameraPermissionError() {
+        alert('Camera permission denied. Please allow camera access to use eye tracking.');
+    }
+    
+    function showNoCameraError() {
+        alert('No camera found. Please connect a camera to use eye tracking.');
+    }
+    
+    function showGeneralError(message) {
+        console.error('Eye tracking error:', message);
+    }
+})();
+</script>

@@ -1,0 +1,159 @@
+{
+  "name": "eyelearn-platform",
+  "version": "1.0.0",
+  "description": "E-Learning Platform with Real-Time Eye Tracking Analytics",
+  "main": "index.php",
+  "keywords": [
+    "e-learning",
+    "eye-tracking",
+    "education",
+    "computer-vision",
+    "analytics",
+    "php",
+    "python",
+    "mysql",
+    "mediapipe",
+    "opencv"
+  ],
+  "author": "EyeLearn Development Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/eyelearn-platform.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/eyelearn-platform/issues"
+  },
+  "homepage": "https://github.com/your-username/eyelearn-platform#readme",
+  "engines": {
+    "node": ">=14.0.0",
+    "python": ">=3.8.0",
+    "php": ">=7.4.0"
+  },
+  "scripts": {
+    "setup": "python setup.py",
+    "start": "echo \"Starting EyeLearn Platform...\" && echo \"Please run start.bat (Windows) or ./start.sh (Mac/Linux)\"",
+    "install-python": "cd python_services && python -m venv venv && pip install -r requirements.txt",
+    "start-tracking": "cd python_services && python eye_tracking_service.py",
+    "test-imports": "cd python_services && python -c \"import cv2, numpy, mediapipe, flask; print('All imports successful!')\"",
+    "check-health": "curl http://localhost:5000/api/health || echo \"Eye tracking service not running\"",
+    "clean": "rm -rf python_services/venv __pycache__ *.pyc",
+    "database-setup": "echo \"Visit http://localhost/capstone/database_setup.php to setup database\""
+  },
+  "dependencies": {
+    "@tailwindcss/cli": "^4.1.4",
+    "@tailwindcss/vite": "^4.1.1",
+    "tailwindcss": "^4.1.4",
+    "chart.js": "^4.4.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0"
+  },
+  "directories": {
+    "doc": "docs",
+    "lib": "src",
+    "test": "tests"
+  },
+  "files": [
+    "admin/",
+    "user/",
+    "python_services/",
+    "database/",
+    "src/",
+    "*.php",
+    "*.md",
+    "*.txt",
+    "requirements.txt",
+    "setup.py",
+    "start.bat",
+    "start.sh"
+  ],
+  "config": {
+    "python_version": "3.8+",
+    "php_version": "7.4+",
+    "mysql_version": "8.0+",
+    "opencv_version": "4.8.0+",
+    "mediapipe_version": "0.10.0+",
+    "flask_version": "2.3.0+"
+  },
+  "system_requirements": {
+    "os": ["Windows 10+", "macOS 10.14+", "Ubuntu 18.04+"],
+    "ram": "4GB minimum, 8GB recommended",
+    "storage": "2GB free space",
+    "camera": "720p webcam (built-in or USB)",
+    "browser": ["Chrome 80+", "Firefox 75+", "Edge 80+"]
+  },
+  "services": {
+    "web_server": {
+      "technology": "Apache + PHP",
+      "port": 80,
+      "url": "http://localhost/capstone"
+    },
+    "database": {
+      "technology": "MySQL",
+      "port": 3306,
+      "name": "elearn_db"
+    },
+    "eye_tracking": {
+      "technology": "Python Flask + MediaPipe",
+      "port": 5000,
+      "url": "http://localhost:5000"
+    }
+  },
+  "features": {
+    "core": [
+      "User authentication and management",
+      "Module-based learning system",
+      "Real-time eye tracking",
+      "Focus detection and analytics",
+      "Admin dashboard with insights",
+      "Student progress tracking"
+    ],
+    "advanced": [
+      "Computer vision with MediaPipe",
+      "Real-time data visualization",
+      "Session continuity across modules",
+      "Gender-based analytics",
+      "Focus time accuracy filtering",
+      "Automatic camera management"
+    ]
+  },
+  "installation": {
+    "quick_start": [
+      "1. Clone repository",
+      "2. Run: python setup.py",
+      "3. Start XAMPP (Apache + MySQL)",
+      "4. Visit database setup page",
+      "5. Run startup script"
+    ],
+    "manual": [
+      "1. Install XAMPP, Python 3.8+",
+      "2. Create virtual environment",
+      "3. Install Python dependencies",
+      "4. Setup database",
+      "5. Configure settings",
+      "6. Start services"
+    ]
+  },
+  "urls": {
+    "production": "http://localhost/capstone",
+    "admin": "http://localhost/capstone/admin",
+    "database_setup": "http://localhost/capstone/database_setup.php",
+    "diagnostics": "http://localhost/capstone/focus_diagnosis.php",
+    "eye_tracking_api": "http://localhost:5000/api",
+    "health_check": "http://localhost:5000/api/health"
+  },
+  "default_credentials": {
+    "admin": {
+      "email": "admin@admin.eyelearn",
+      "password": "admin123"
+    }
+  },
+  "documentation": {
+    "readme": "README.md",
+    "installation": "INSTALL.md",
+    "api": "docs/api.md",
+    "troubleshooting": "docs/troubleshooting.md"
+  }
+}

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual Widget Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <h1 class="text-2xl font-bold mb-4">Manual CV Eye Tracking Widget Test</h1>
+    
+    <div class="bg-white p-6 rounded shadow mb-4">
+        <h2 class="text-lg font-semibold mb-2">Test Controls</h2>
+        <button onclick="createWidget()" class="bg-blue-500 text-white px-4 py-2 rounded mr-2">
+            Create Widget Manually
+        </button>
+        <button onclick="testVideo()" class="bg-green-500 text-white px-4 py-2 rounded mr-2">
+            Test Video Direct
+        </button>
+        <button onclick="checkElements()" class="bg-purple-500 text-white px-4 py-2 rounded">
+            Check Elements
+        </button>
+    </div>
+    
+    <div id="status" class="bg-gray-50 p-4 border rounded mb-4">
+        Status messages will appear here...
+    </div>
+    
+    <div id="video-test" class="bg-black p-4 border rounded" style="display: none;">
+        <img id="test-video" style="width: 100%; max-width: 640px;" />
+    </div>
+
+    <script>
+        function log(message) {
+            const status = document.getElementById('status');
+            const timestamp = new Date().toLocaleTimeString();
+            status.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            console.log(message);
+        }
+
+        function createWidget() {
+            log('Creating widget manually...');
+            
+            // Create the widget exactly as in the CV eye tracking system
+            const trackingContainer = document.createElement('div');
+            trackingContainer.id = 'cv-eye-tracking-interface';
+            trackingContainer.innerHTML = `
+                <div class="fixed top-4 right-4 bg-white shadow-lg rounded-lg p-4 border border-gray-200 z-50 max-w-md">
+                    <div class="flex items-center mb-2">
+                        <div id="tracking-indicator" class="w-3 h-3 rounded-full bg-red-500 mr-2"></div>
+                        <h3 class="text-sm font-semibold text-gray-700">CV Eye Tracking (Manual)</h3>
+                        <button id="toggle-video" class="ml-auto text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">
+                            Show Video
+                        </button>
+                    </div>
+                    
+                    <div id="video-container" class="mb-3 hidden">
+                        <div class="bg-black rounded border overflow-hidden" style="width: 100%; min-height: 200px;">
+                            <img id="tracking-video" src="" alt="Gaze Tracking Feed" style="width: 100%; height: 200px; object-fit: cover; display: block;">
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1 text-center">Live gaze tracking with annotations</div>
+                    </div>
+                    
+                    <div class="space-y-2 text-xs">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Status:</span>
+                            <span id="tracking-status" class="font-medium">Manual Test</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(trackingContainer);
+            log('✅ Widget created and added to DOM');
+            
+            // Add video toggle functionality
+            const toggleButton = document.getElementById('toggle-video');
+            const videoContainer = document.getElementById('video-container');
+            
+            toggleButton.addEventListener('click', () => {
+                if (videoContainer.classList.contains('hidden')) {
+                    videoContainer.classList.remove('hidden');
+                    toggleButton.textContent = 'Hide Video';
+                    log('📹 Video container shown');
+                    startVideoTest();
+                } else {
+                    videoContainer.classList.add('hidden');
+                    toggleButton.textContent = 'Show Video';
+                    log('📹 Video container hidden');
+                    stopVideoTest();
+                }
+            });
+        }
+
+        let videoTestInterval = null;
+
+        function startVideoTest() {
+            if (videoTestInterval) return;
+            
+            log('Starting video test...');
+            videoTestInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('http://127.0.0.1:5000/api/frame');
+                    const data = await response.json();
+                    
+                    if (data.success && data.frame) {
+                        const videoElement = document.getElementById('tracking-video');
+                        if (videoElement) {
+                            videoElement.src = `data:image/jpeg;base64,${data.frame}`;
+                        }
+                    }
+                } catch (error) {
+                    console.warn('Video test error:', error);
+                }
+            }, 200);
+        }
+
+        function stopVideoTest() {
+            if (videoTestInterval) {
+                clearInterval(videoTestInterval);
+                videoTestInterval = null;
+                log('Video test stopped');
+            }
+        }
+
+        function testVideo() {
+            log('Testing video direct...');
+            const videoTest = document.getElementById('video-test');
+            const testVideo = document.getElementById('test-video');
+            
+            videoTest.style.display = 'block';
+            
+            fetch('http://127.0.0.1:5000/api/frame')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.frame) {
+                        testVideo.src = `data:image/jpeg;base64,${data.frame}`;
+                        log('✅ Direct video test successful');
+                    } else {
+                        log('❌ No frame data in direct test');
+                    }
+                })
+                .catch(error => {
+                    log('❌ Direct video test failed: ' + error.message);
+                });
+        }
+
+        function checkElements() {
+            const widget = document.getElementById('cv-eye-tracking-interface');
+            const videoContainer = document.getElementById('video-container');
+            const trackingVideo = document.getElementById('tracking-video');
+            
+            log('Element check:');
+            log(`- Widget exists: ${!!widget}`);
+            log(`- Video container exists: ${!!videoContainer}`);
+            log(`- Tracking video exists: ${!!trackingVideo}`);
+            
+            if (widget) {
+                const rect = widget.getBoundingClientRect();
+                log(`- Widget position: ${rect.top}, ${rect.right}`);
+                log(`- Widget visible: ${rect.width > 0 && rect.height > 0}`);
+            }
+        }
+
+        // Auto-test on load
+        window.addEventListener('load', () => {
+            log('🚀 Manual test page loaded');
+        });
+    </script>
+</body>
+</html>

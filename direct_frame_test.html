@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Direct Frame Test</title>
+</head>
+<body>
+    <div style="padding: 20px; font-family: Arial, sans-serif;">
+        <h1>Direct Video Frame Test</h1>
+        <button onclick="loadFrame()" style="padding: 10px 20px; background: #007acc; color: white; border: none; border-radius: 5px;">
+            Load Frame
+        </button>
+        <div id="status" style="margin: 20px 0;"></div>
+        <img id="frame" style="max-width: 100%; border: 2px solid #007acc;" />
+    </div>
+
+    <script>
+        async function loadFrame() {
+            const status = document.getElementById('status');
+            const img = document.getElementById('frame');
+            
+            try {
+                status.textContent = 'Loading frame...';
+                
+                const response = await fetch('http://127.0.0.1:5000/api/frame', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                console.log('Response status:', response.status);
+                console.log('Response headers:', [...response.headers.entries()]);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('Response data:', {
+                    success: data.success,
+                    hasFrame: !!data.frame,
+                    frameLength: data.frame ? data.frame.length : 0
+                });
+                
+                if (data.success && data.frame) {
+                    img.src = `data:image/jpeg;base64,${data.frame}`;
+                    status.textContent = `✅ Frame loaded successfully! (${data.frame.length} characters)`;
+                    
+                    img.onload = () => {
+                        console.log('Image loaded successfully');
+                        status.textContent += ' - Image displayed!';
+                    };
+                    
+                    img.onerror = (error) => {
+                        console.error('Image load error:', error);
+                        status.textContent = '❌ Failed to display image';
+                    };
+                } else {
+                    status.textContent = '❌ No frame data received';
+                    console.error('No frame data:', data);
+                }
+                
+            } catch (error) {
+                console.error('Fetch error:', error);
+                status.textContent = `❌ Error: ${error.message}`;
+            }
+        }
+        
+        // Test on page load
+        window.addEventListener('load', () => {
+            console.log('Page loaded, testing frame load...');
+            loadFrame();
+        });
+    </script>
+</body>
+</html>

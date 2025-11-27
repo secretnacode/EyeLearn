@@ -1,0 +1,1 @@
+ALTER TABLE quiz_results DROP COLUMN IF EXISTS module_title;

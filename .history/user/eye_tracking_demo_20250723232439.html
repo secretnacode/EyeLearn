@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Enhanced Eye Tracking System Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-4xl mx-auto">
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">🎯 Enhanced Eye Tracking System</h1>
+                <p class="text-gray-600">Automatic focus tracking with 3-second countdown, focused/unfocused time recording</p>
+            </div>
+
+            <!-- Feature Cards -->
+            <div class="grid md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <div class="text-center">
+                        <div class="text-3xl mb-2">📋</div>
+                        <h3 class="font-semibold text-gray-800">Camera Agreement</h3>
+                        <p class="text-sm text-gray-600 mt-2">Users must agree to camera permission before accessing modules</p>
+                    </div>
+                </div>
+                
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <div class="text-center">
+                        <div class="text-3xl mb-2">⏱️</div>
+                        <h3 class="font-semibold text-gray-800">3-Second Countdown</h3>
+                        <p class="text-sm text-gray-600 mt-2">Automatic start with countdown timer, no manual toggle required</p>
+                    </div>
+                </div>
+                
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <div class="text-center">
+                        <div class="text-3xl mb-2">📊</div>
+                        <h3 class="font-semibold text-gray-800">Focus Analytics</h3>
+                        <p class="text-sm text-gray-600 mt-2">Separate tracking of focused vs unfocused time for detailed analytics</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Demo Controls -->
+            <div class="bg-white p-6 rounded-lg shadow mb-6">
+                <h2 class="text-xl font-semibold mb-4">🧪 System Demo</h2>
+                
+                <div class="grid md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Agreement Status:</label>
+                        <div id="agreement-status" class="text-lg font-semibold text-red-600">Not Agreed</div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Service Status:</label>
+                        <div id="service-status" class="text-lg font-semibold text-gray-500">Checking...</div>
+                    </div>
+                </div>
+                
+                <div class="flex gap-4 mb-4">
+                    <button id="simulate-agreement" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                        ✅ Simulate Agreement
+                    </button>
+                    <button id="simulate-decline" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+                        ❌ Simulate Decline
+                    </button>
+                    <button id="test-tracking" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                        🎯 Test Eye Tracking
+                    </button>
+                </div>
+                
+                <div id="demo-output" class="bg-gray-50 p-4 rounded border min-h-32">
+                    <h3 class="font-medium mb-2">Demo Output:</h3>
+                    <div id="demo-messages" class="text-sm space-y-1">
+                        <p class="text-gray-600">Click buttons above to test the system...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Status -->
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold mb-4">📈 Live Tracking Data</h3>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span>Tracking Status:</span>
+                            <span id="tracking-enabled" class="font-medium">Disabled</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Focus State:</span>
+                            <span id="focus-state" class="font-medium">Unknown</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Session Time:</span>
+                            <span id="session-time" class="font-medium text-blue-600">00:00</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Focused Time:</span>
+                            <span id="focused-time" class="font-medium text-green-600">00:00</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Unfocused Time:</span>
+                            <span id="unfocused-time" class="font-medium text-red-600">00:00</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold mb-4">🔧 Quick Actions</h3>
+                    <div class="space-y-2">
+                        <button id="view-agreement" class="w-full bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
+                            📋 View Camera Agreement
+                        </button>
+                        <button id="open-module" class="w-full bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
+                            📚 Open Module (Demo)
+                        </button>
+                        <button id="check-analytics" class="w-full bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700">
+                            📊 Check Analytics
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include the enhanced CV eye tracking script -->
+    <script src="js/cv-eye-tracking.js"></script>
+    
+    <script>
+        let demoTracker = null;
+        
+        // Utility functions
+        function addDemoMessage(message, type = 'info') {
+            const messagesDiv = document.getElementById('demo-messages');
+            const timestamp = new Date().toLocaleTimeString();
+            const colors = {
+                'info': 'text-blue-600',
+                'success': 'text-green-600',
+                'error': 'text-red-600',
+                'warning': 'text-orange-600'
+            };
+            
+            const messageEl = document.createElement('p');
+            messageEl.className = colors[type] || 'text-gray-600';
+            messageEl.textContent = `[${timestamp}] ${message}`;
+            messagesDiv.appendChild(messageEl);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        function updateAgreementStatus() {
+            const agreed = localStorage.getItem('eyeTrackingAgreed') === 'true';
+            const statusEl = document.getElementById('agreement-status');
+            if (agreed) {
+                statusEl.textContent = '✅ Agreed';
+                statusEl.className = 'text-lg font-semibold text-green-600';
+            } else {
+                statusEl.textContent = '❌ Not Agreed';
+                statusEl.className = 'text-lg font-semibold text-red-600';
+            }
+        }
+        
+        async function checkServiceStatus() {
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/health');
+                const statusEl = document.getElementById('service-status');
+                if (response.ok) {
+                    statusEl.textContent = '✅ Running';
+                    statusEl.className = 'text-lg font-semibold text-green-600';
+                    addDemoMessage('Python service is running', 'success');
+                } else {
+                    statusEl.textContent = '❌ Error';
+                    statusEl.className = 'text-lg font-semibold text-red-600';
+                    addDemoMessage('Python service error', 'error');
+                }
+            } catch (error) {
+                const statusEl = document.getElementById('service-status');
+                statusEl.textContent = '🔌 Offline';
+                statusEl.className = 'text-lg font-semibold text-gray-500';
+                addDemoMessage('Python service offline', 'error');
+            }
+        }
+        
+        // Demo button handlers
+        document.getElementById('simulate-agreement').addEventListener('click', () => {
+            localStorage.setItem('eyeTrackingAgreed', 'true');
+            localStorage.setItem('eyeTrackingAgreementDate', new Date().toISOString());
+            updateAgreementStatus();
+            addDemoMessage('✅ Camera permission granted', 'success');
+        });
+        
+        document.getElementById('simulate-decline').addEventListener('click', () => {
+            localStorage.setItem('eyeTrackingAgreed', 'false');
+            updateAgreementStatus();
+            addDemoMessage('❌ Camera permission declined', 'warning');
+        });
+        
+        document.getElementById('test-tracking').addEventListener('click', () => {
+            const agreed = localStorage.getItem('eyeTrackingAgreed') === 'true';
+            if (!agreed) {
+                addDemoMessage('❌ Cannot start tracking - no camera permission', 'error');
+                return;
+            }
+            
+            if (demoTracker) {
+                demoTracker.destroy();
+            }
+            
+            addDemoMessage('🎯 Starting eye tracking test...', 'info');
+            demoTracker = new CVEyeTrackingSystem(14, 32); // Demo module/section
+            
+            // Monitor status updates
+            setInterval(async () => {
+                if (demoTracker) {
+                    try {
+                        const response = await fetch('http://127.0.0.1:5000/api/status');
+                        if (response.ok) {
+                            const data = await response.json();
+                            const status = data.status;
+                            
+                            document.getElementById('tracking-enabled').textContent = 
+                                status.is_tracking_enabled ? '✅ Active' : '❌ Inactive';
+                            document.getElementById('focus-state').textContent = 
+                                status.is_focused ? '👁️ Focused' : '👀 Unfocused';
+                            document.getElementById('session-time').textContent = 
+                                formatTime(status.total_time || 0);
+                            document.getElementById('focused-time').textContent = 
+                                formatTime(status.focused_time || 0);
+                            document.getElementById('unfocused-time').textContent = 
+                                formatTime(status.unfocused_time || 0);
+                        }
+                    } catch (error) {
+                        console.error('Status update error:', error);
+                    }
+                }
+            }, 2000);
+        });
+        
+        document.getElementById('view-agreement').addEventListener('click', () => {
+            window.open('camera_agreement.php', '_blank');
+        });
+        
+        document.getElementById('open-module').addEventListener('click', () => {
+            window.open('Smodulepart.php?module_id=14&section_id=32', '_blank');
+        });
+        
+        document.getElementById('check-analytics').addEventListener('click', () => {
+            addDemoMessage('📊 Analytics integration ready for dashboard', 'info');
+        });
+        
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        // Initialize
+        window.addEventListener('load', () => {
+            addDemoMessage('🚀 Enhanced Eye Tracking System Demo Loaded', 'success');
+            updateAgreementStatus();
+            checkServiceStatus();
+        });
+    </script>
+</body>
+</html>

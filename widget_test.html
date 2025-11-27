@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CV Widget Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="user/js/cv-eye-tracking.js"></script>
+</head>
+<body>
+    <div class="p-8">
+        <h1 class="text-2xl font-bold mb-4">CV Eye Tracking Widget Test</h1>
+        <button onclick="initializeWidget()" class="bg-blue-500 text-white px-4 py-2 rounded">
+            Initialize Widget
+        </button>
+        <div id="status" class="mt-4 p-4 border rounded"></div>
+    </div>
+
+    <script>
+        function initializeWidget() {
+            const status = document.getElementById('status');
+            
+            try {
+                status.innerHTML = '<div class="text-blue-600">Initializing CV Eye Tracking...</div>';
+                console.log('Creating CVEyeTrackingSystem...');
+                
+                window.cvTracker = new CVEyeTrackingSystem('test_module', 'test_section');
+                
+                status.innerHTML = '<div class="text-green-600">✅ Widget initialized! Check top-right corner.</div>';
+                console.log('Widget should be visible now');
+                
+            } catch (error) {
+                status.innerHTML = `<div class="text-red-600">❌ Error: ${error.message}</div>`;
+                console.error('Error creating widget:', error);
+            }
+        }
+
+        // Log any global errors
+        window.addEventListener('error', (event) => {
+            console.error('Global error:', event.error);
+            document.getElementById('status').innerHTML += `<div class="text-red-600">Global error: ${event.error.message}</div>`;
+        });
+    </script>
+</body>
+</html>

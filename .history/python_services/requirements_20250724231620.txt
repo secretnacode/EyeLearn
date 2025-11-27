@@ -1,0 +1,22 @@
+# Eye Tracking Service Dependencies
+# Updated for Python 3.12 compatibility
+
+# Core dependencies for GazeTracking
+opencv-python>=4.8.0
+numpy>=1.24.0
+dlib>=19.24.0
+
+# Flask for API server (using compatible version)
+Flask>=2.3.0
+Flask-CORS>=4.0.0
+
+# HTTP requests
+requests>=2.28.0
+
+# Additional utilities
+Pillow>=10.0.0
+
+# Installation instructions:
+# 1. Install Python 3.8+ 
+# 2. pip install -r requirements.txt
+# 3. GazeTracking library is now included locally
