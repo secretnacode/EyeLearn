@@ -47,7 +47,7 @@ if ($time_spent <= 0) {
 
 try {
     // Check if record exists for today
-    $check_query = "SELECT id, total_time_seconds FROM eye_tracking_sessions 
+    $check_query = "SELECT id, total_time_seconds, focused_time_seconds, unfocused_time_seconds FROM eye_tracking_sessions 
                    WHERE user_id = ? AND module_id = ? AND section_id = ? 
                    AND session_type = 'cv_tracking'
                    AND DATE(created_at) = CURDATE()
@@ -58,36 +58,49 @@ try {
     $stmt->execute();
     $result = $stmt->get_result();
     
+    // Extract focus data if provided (from Python CV service)
+    $focused_time = intval($input['focused_time'] ?? 0);
+    $unfocused_time = intval($input['unfocused_time'] ?? 0);
+    
     if ($result->num_rows > 0) {
         // Update existing record
         $row = $result->fetch_assoc();
         $new_total_time = $row['total_time_seconds'] + $time_spent;
+        $new_focused_time = intval($row['focused_time_seconds']) + $focused_time;
+        $new_unfocused_time = intval($row['unfocused_time_seconds']) + $unfocused_time;
         
         $update_query = "UPDATE eye_tracking_sessions 
-                        SET total_time_seconds = ?, last_updated = NOW() 
+                        SET total_time_seconds = ?, 
+                            focused_time_seconds = ?,
+                            unfocused_time_seconds = ?,
+                            last_updated = NOW() 
                         WHERE id = ?";
         $update_stmt = $conn->prepare($update_query);
-        $update_stmt->bind_param("ii", $new_total_time, $row['id']);
+        $update_stmt->bind_param("iiii", $new_total_time, $new_focused_time, $new_unfocused_time, $row['id']);
         $update_stmt->execute();
         
         echo json_encode([
             'success' => true, 
             'total_time' => $new_total_time,
+            'focused_time' => $new_focused_time,
+            'unfocused_time' => $new_unfocused_time,
             'time_added' => $time_spent,
             'tracking_type' => 'cv_tracking'
         ]);
     } else {
         // Create new record
         $insert_query = "INSERT INTO eye_tracking_sessions 
-                        (user_id, module_id, section_id, total_time_seconds, session_type, created_at, last_updated) 
-                        VALUES (?, ?, ?, ?, ?, NOW(), NOW())";
+                        (user_id, module_id, section_id, total_time_seconds, focused_time_seconds, unfocused_time_seconds, session_type, created_at, last_updated) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
         $insert_stmt = $conn->prepare($insert_query);
-        $insert_stmt->bind_param("iiiis", $user_id, $module_id, $section_id, $time_spent, $session_type);
+        $insert_stmt->bind_param("iiiiis", $user_id, $module_id, $section_id, $time_spent, $focused_time, $unfocused_time, $session_type);
         $insert_stmt->execute();
         
         echo json_encode([
             'success' => true, 
             'total_time' => $time_spent,
+            'focused_time' => $focused_time,
+            'unfocused_time' => $unfocused_time,
             'time_added' => $time_spent,
             'tracking_type' => 'cv_tracking',
             'new_session' => true

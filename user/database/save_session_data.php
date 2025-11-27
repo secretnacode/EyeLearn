@@ -47,15 +47,21 @@ try {
     // Insert or update session data
     $session_sql = "
         INSERT INTO eye_tracking_sessions 
-        (user_id, module_id, section_id, total_time_seconds, session_type, created_at, last_updated) 
-        VALUES (?, ?, ?, ?, 'viewing', NOW(), NOW())
+        (user_id, module_id, section_id, total_time_seconds, focused_time_seconds, unfocused_time_seconds, session_type, created_at, last_updated) 
+        VALUES (?, ?, ?, ?, ?, ?, 'viewing', NOW(), NOW())
         ON DUPLICATE KEY UPDATE 
         total_time_seconds = total_time_seconds + VALUES(total_time_seconds),
+        focused_time_seconds = focused_time_seconds + VALUES(focused_time_seconds),
+        unfocused_time_seconds = unfocused_time_seconds + VALUES(unfocused_time_seconds),
         last_updated = NOW()
     ";
 
+    // Extract focus data if provided, otherwise default to 0
+    $focused_time = isset($focus_data['focused_time']) ? intval($focus_data['focused_time']) : 0;
+    $unfocused_time = isset($focus_data['unfocused_time']) ? intval($focus_data['unfocused_time']) : 0;
+
     $stmt = $conn->prepare($session_sql);
-    $stmt->bind_param('iiis', $user_id, $module_id, $section_id, $session_time);
+    $stmt->bind_param('iiiiii', $user_id, $module_id, $section_id, $session_time, $focused_time, $unfocused_time);
     
     if (!$stmt->execute()) {
         throw new Exception('Failed to save session data');
